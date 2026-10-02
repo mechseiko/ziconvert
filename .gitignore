@@ -67,3 +67,9 @@ models/
 
 CLAUDE.md
 AGENTS.md
+
+# --- Web backend runtime artefacts ---
+web/backend/.deps_ok
+web/backend/__pycache__/
+web/backend/*.pyc
+

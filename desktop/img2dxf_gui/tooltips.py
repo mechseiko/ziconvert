@@ -154,6 +154,23 @@ HELP: dict[str, str] = {
         "Raise it by hand if a small logo still looks rough; lower it to 1x if "
         "a very large scan feels slow."
     ),
+    "sr_backend": (
+        "Rebuilds missing detail with a super-resolution model before "
+        "tracing.\n\n"
+        "Off is the default and uses the plain enlargement above, which is "
+        "instant and invents nothing. Auto uses the best model that is "
+        "actually installed. Turn it on for a small, blurry or heavily "
+        "compressed source - and expect it to take seconds rather than "
+        "milliseconds. It guesses at edges that were never in the file, so "
+        "check the preview before cutting."
+    ),
+    "sr_model": (
+        "Where the super-resolution model file lives.\n\n"
+        "Only needed by the model backends. Leave it blank and the engine "
+        "looks in ~/.img2dxf/models/. It never downloads anything behind your "
+        "back: with no file found, the backend falls back to plain "
+        "enlargement and says so."
+    ),
     # --- adjustments ---------------------------------------------------
     "auto_levels": (
         "Stretches the image so its darkest parts are black and its lightest "
@@ -228,8 +245,50 @@ HELP: dict[str, str] = {
     ),
     # --- cleanup -------------------------------------------------------
     "denoise": (
-        "Removes isolated speckles from the image before tracing.\n\n"
-        "The right tool for a grainy scan or a dusty original."
+        "How hard to clean the image up before tracing. 0 leaves it "
+        "alone.\n\n"
+        "One dial that each denoise mode reads in its own units, so raising it "
+        "always means 'more' whichever filter is chosen. The right tool for a "
+        "grainy scan, a dusty original or a JPEG that has gone blotchy."
+    ),
+    "denoise_mode": (
+        "Which filter the denoise strength drives.\n\n"
+        "Median deletes specks outright - right for scanner grain, but it "
+        "rounds corners and chews thin strokes. Bilateral smooths flat areas "
+        "while leaving edges crisp, which is what turns a jagged oval into a "
+        "curve; it is the one to reach for on logos. Non-local means compares "
+        "whole patches and is strongest on photographs, and slowest."
+    ),
+    "bilateral_sigma_color": (
+        "How different in brightness a neighbour may be and still be averaged "
+        "in.\n\n"
+        "Bilateral only. Small keeps edges razor-sharp but does little to flat "
+        "mottling; large smooths the mottling but starts to blur across edges. "
+        "75 suits most artwork."
+    ),
+    "bilateral_sigma_space": (
+        "How far away a neighbour may be and still be averaged in, in "
+        "pixels.\n\n"
+        "Bilateral only. Raise it with the denoise strength so the whole "
+        "neighbourhood counts; leaving it small while the radius is large just "
+        "wastes the time."
+    ),
+    "nlm_h": (
+        "How hard non-local means filters.\n\n"
+        "Higher removes more noise and more detail with it. Start at 10 on a "
+        "photograph and work down if fine texture is being erased."
+    ),
+    "nlm_template_window": (
+        "The size of the patch compared between two pixels.\n\n"
+        "Non-local means only. Larger compares more context, which copes "
+        "better with heavy grain, and costs more time. Forced to an odd "
+        "number so the patch has a centre."
+    ),
+    "nlm_search_window": (
+        "How wide an area is searched for a matching patch.\n\n"
+        "Non-local means only, and the main reason it is slow: doubling it "
+        "roughly quadruples the work. Leave it alone unless the result is "
+        "still noisy."
     ),
     "blur": (
         "Softens the image before thresholding.\n\n"
@@ -245,6 +304,19 @@ HELP: dict[str, str] = {
         "Removes small specks from the traced shape.\n\n"
         "Similar to Min area, but it cleans the image rather than discarding "
         "finished outlines."
+    ),
+    "morph_kernel": (
+        "The shape stamped along the outline by Close and Open.\n\n"
+        "An ellipse is the default and the safest: a circle closed with a "
+        "square kernel comes out with flats on it. Use Rect when the artwork "
+        "really is rectilinear and you want corners kept sharp, and Cross when "
+        "thin diagonal strokes are being fattened by the other two."
+    ),
+    "morph_iterations": (
+        "How many times Close and Open are each applied.\n\n"
+        "Two light passes usually beat one heavy one. Repeated small kernels "
+        "follow an outline round a curve, while one large kernel stamps a big "
+        "disc over it and rounds off corners that were meant to stay sharp."
     ),
     # --- vectors -------------------------------------------------------
     "simplify_mm": (
@@ -285,6 +357,91 @@ HELP: dict[str, str] = {
         "Cuts the inner outlines of a shape as well as the outer one.\n\n"
         "This is what keeps the middle of an O open. Turn it off only if you "
         "want solid silhouettes."
+    ),
+    # --- primitive snapping --------------------------------------------
+    "shape_fit": (
+        "Snaps a traced outline to the ideal shape it obviously was.\n\n"
+        "A circle drawn as a circle comes out as a true CIRCLE, an oval as a "
+        "true ellipse, a plate as a true rectangle - rather than as a few "
+        "hundred short segments that only approximate one. Every point is "
+        "measured against the fit first, so a shape that is merely round-ish "
+        "is left alone."
+    ),
+    "shape_fit_circle": (
+        "Allow outlines to be snapped to a circle.\n\n"
+        "The result is written as a CIRCLE entity, which is the cleanest thing "
+        "a DXF can contain. Turn it off only if a downstream step needs "
+        "polyline points everywhere."
+    ),
+    "shape_fit_ellipse": (
+        "Allow outlines to be snapped to an ellipse.\n\n"
+        "Catches ovals, and circles photographed at an angle. The ellipse is "
+        "resampled into the outline's own points, so arc fitting still turns "
+        "it into smooth arcs afterwards."
+    ),
+    "shape_fit_rect": (
+        "Allow outlines to be snapped to a rectangle.\n\n"
+        "Handles both upright and rotated rectangles. Useful for nameplates, "
+        "gaskets and anything cut from a sheet: the corners come out exactly "
+        "square instead of very nearly square."
+    ),
+    "shape_fit_tol_mm": (
+        "How far a point may sit from the ideal shape and still count as being "
+        "on it.\n\n"
+        "Leave at 0 to derive it, the same way arc fitting does: the looser of "
+        "your simplify tolerance and one source pixel. Deriving is right "
+        "because a traced outline departs from any ideal shape by about half a "
+        "pixel however clean the artwork was, so a tighter number rejects "
+        "every real primitive."
+    ),
+    "shape_fit_min_vertices": (
+        "The fewest vertices an outline may have before snapping is even "
+        "tried.\n\n"
+        "Five points always fit an ellipse exactly, so a pentagon would be "
+        "reported as one. Requiring a few more points than the shape has "
+        "parameters is what makes the measurement mean anything."
+    ),
+    # --- vector snapping -----------------------------------------------
+    "vector_snap": (
+        "Regularises the finished geometry: lines meant to be flat come out "
+        "exactly flat, corners meant to be square come out exactly "
+        "square.\n\n"
+        "The output-side counterpart of shape snapping. Works in fractions of "
+        "a millimetre, so it removes the pixel staircase without moving "
+        "anything you can see. Turn it off to export the trace exactly as "
+        "found."
+    ),
+    "snap_axis_deg": (
+        "Segments within this many degrees of horizontal or vertical are made "
+        "exactly so.\n\n"
+        "Under a degree catches everything a pixel grid left slightly askew "
+        "and nothing that was genuinely sloped. Raise it only for artwork "
+        "scanned badly out of square."
+    ),
+    "snap_merge_mm": (
+        "Coordinates closer together than this collapse onto one shared "
+        "value.\n\n"
+        "Applied across the whole job, not one shape at a time, so two stems "
+        "that were meant to line up actually do. Set it to 0 to snap each "
+        "segment on its own and leave nearby edges slightly apart."
+    ),
+    "snap_right_angle_deg": (
+        "Corners within this many degrees of 90 are made exactly 90.\n\n"
+        "This is what stops a rectangle coming out as a very slightly "
+        "lopsided one, which is invisible on screen and obvious in the "
+        "finished part."
+    ),
+    "snap_circle_mm": (
+        "How far a ring may stray from a perfect circle and still be snapped "
+        "to one at this stage.\n\n"
+        "Kept separate from the shape-snap tolerance because this runs earlier "
+        "and looser, before kerf compensation and arc fitting."
+    ),
+    "snap_min_segment_mm": (
+        "Segments shorter than this are ignored by the snapping pass.\n\n"
+        "A stub a few hundredths of a millimetre long points in whatever "
+        "direction noise left it, and snapping to that direction drags the "
+        "real edges with it."
     ),
     # --- machine -------------------------------------------------------
     "kerf_mm": (

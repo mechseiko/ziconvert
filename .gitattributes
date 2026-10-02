@@ -1,0 +1,35 @@
+# Shell scripts must keep LF endings: a `run.sh` with CRLF in it fails on
+# Linux and macOS with a confusing "bad interpreter" error, and this repo is
+# developed on Windows where git would otherwise convert them on checkout.
+*.sh text eol=lf
+
+# Windows batch files want CRLF, which is what cmd.exe expects.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Source and text files are stored with LF and converted on checkout according
+# to each developer's core.autocrlf setting.
+*.py text
+*.ts text
+*.tsx text
+*.js text
+*.jsx text
+*.json text
+*.md text
+*.html text
+*.css text
+*.toml text
+*.yaml text
+*.yml text
+*.spec text
+
+# Binary: never touch, never diff.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.exe binary
+*.pb binary
+*.onnx binary

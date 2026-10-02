@@ -8,7 +8,15 @@ from dataclasses import replace
 from pathlib import Path
 
 from .export_dxf import write_dxf
-from .params import DXF_VERSIONS, PRESETS, TraceParams
+from .params import (
+    DENOISE_MODES,
+    DXF_VERSIONS,
+    KERF_SIDES,
+    MORPH_KERNELS,
+    PRESETS,
+    SR_BACKENDS,
+    TraceParams,
+)
 from .pipeline import run_file
 from . import settings as settings_io
 from .export_svg import write_svg
@@ -74,6 +82,30 @@ def build_parser() -> argparse.ArgumentParser:
         "--corner-deg", type=float, dest="corner_deg",
         help="turns sharper than this are corners and are never smoothed",
     )
+    quality.add_argument(
+        "--no-shape-fit", action="store_true",
+        help="never snap an outline to a circle, ellipse or rectangle",
+    )
+    quality.add_argument(
+        "--shape-fit-tol", type=float, dest="shape_fit_tol_mm",
+        help="how far a point may sit off the primitive, mm; 0 derives it",
+    )
+    quality.add_argument(
+        "--no-vector-snap", action="store_true",
+        help="do not square up near-axis lines and near-90-degree corners",
+    )
+    quality.add_argument(
+        "--snap-axis-deg", type=float, dest="snap_axis_deg",
+        help="segments this close to an axis become exactly on it",
+    )
+    quality.add_argument(
+        "--snap-merge", type=float, dest="snap_merge_mm",
+        help="collapse coordinates closer than this, mm; 0 disables",
+    )
+    quality.add_argument(
+        "--snap-right-angle-deg", type=float, dest="snap_right_angle_deg",
+        help="corners this close to 90 degrees become exactly 90",
+    )
 
     tone = parser.add_argument_group("image adjustments")
     tone.add_argument(
@@ -83,6 +115,14 @@ def build_parser() -> argparse.ArgumentParser:
     tone.add_argument("--contrast", type=float, help="1.0 leaves the image alone")
     tone.add_argument("--gamma", type=float, help="below 1 darkens midtones")
     tone.add_argument("--sharpen", type=float, help="unsharp strength; opposes --blur")
+    tone.add_argument(
+        "--sr", dest="sr_backend", choices=list(SR_BACKENDS),
+        help="super-resolution used before tracing (default: off)",
+    )
+    tone.add_argument(
+        "--sr-model", dest="sr_model",
+        help="model file for --sr, e.g. FSRCNN_x2.pb",
+    )
 
     shape = parser.add_argument_group("tracing")
     shape.add_argument(
@@ -94,9 +134,36 @@ def build_parser() -> argparse.ArgumentParser:
     shape.add_argument("--levels", type=int, help="tone levels for --mode posterize, 2-8")
     shape.add_argument("--invert", action="store_true", help="trace light areas instead")
     shape.add_argument("--blur", type=int, help="gaussian blur radius in pixels")
-    shape.add_argument("--denoise", type=int, help="median filter radius in pixels")
+    shape.add_argument("--denoise", type=int, help="denoise strength; 0 disables")
+    shape.add_argument(
+        "--no-denoise", action="store_true", help="leave the image exactly as loaded"
+    )
+    shape.add_argument(
+        "--denoise-mode", dest="denoise_mode", choices=list(DENOISE_MODES),
+        help="which filter --denoise drives",
+    )
+    shape.add_argument(
+        "--bilateral-sigma-color", type=float, dest="bilateral_sigma_color",
+        help="brightness difference a bilateral neighbour may have",
+    )
+    shape.add_argument(
+        "--bilateral-sigma-space", type=float, dest="bilateral_sigma_space",
+        help="distance a bilateral neighbour may be, in pixels",
+    )
+    shape.add_argument(
+        "--nlm-h", type=float, dest="nlm_h",
+        help="non-local-means filtering strength",
+    )
     shape.add_argument("--close", type=int, dest="close_px", help="bridge gaps, in pixels")
     shape.add_argument("--open", type=int, dest="open_px", help="remove specks, in pixels")
+    shape.add_argument(
+        "--morph-kernel", dest="morph_kernel", choices=list(MORPH_KERNELS),
+        help="structuring element for --close and --open",
+    )
+    shape.add_argument(
+        "--morph-iterations", type=int, dest="morph_iterations",
+        help="apply each morphology pass this many times",
+    )
     shape.add_argument("--simplify", type=float, dest="simplify_mm", help="tolerance in mm")
     shape.add_argument("--smooth", type=int, help="corner-rounding passes, 0-3")
     shape.add_argument(
@@ -118,7 +185,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="beam width in mm; paths are offset by half of it",
     )
     machine.add_argument(
-        "--kerf-side", choices=["none", "outside", "inside"], dest="kerf_side",
+        "--kerf-side", choices=list(KERF_SIDES), dest="kerf_side",
         help="outside keeps the part's size, inside keeps the hole's",
     )
     machine.add_argument(
@@ -188,6 +255,10 @@ def params_from_args(args: argparse.Namespace) -> TraceParams:
         "dxf_version", "layer_name", "rotate_deg", "kerf_mm", "kerf_side",
         "brightness", "contrast", "gamma", "sharpen", "tab_count", "tab_mm",
         "tile_gap_mm", "detail", "straighten_mm", "min_run_mm", "corner_deg",
+        "denoise_mode", "bilateral_sigma_color", "bilateral_sigma_space",
+        "nlm_h", "morph_kernel", "morph_iterations",
+        "sr_backend", "sr_model", "shape_fit_tol_mm",
+        "snap_axis_deg", "snap_merge_mm", "snap_right_angle_deg",
     )
     overrides = {
         name: getattr(args, name)
@@ -209,6 +280,12 @@ def params_from_args(args: argparse.Namespace) -> TraceParams:
         overrides["auto_levels"] = True
     if args.no_straighten:
         overrides["straighten_mm"] = 0.0
+    if args.no_denoise:
+        overrides["denoise"] = 0
+    if args.no_shape_fit:
+        overrides["shape_fit"] = False
+    if args.no_vector_snap:
+        overrides["vector_snap"] = False
     if args.crop:
         overrides["crop"] = _parse_crop(args.crop)
     if args.copies:

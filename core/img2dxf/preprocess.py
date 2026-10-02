@@ -13,7 +13,14 @@ import cv2
 import numpy as np
 from PIL import Image
 
-from .params import TraceParams
+from .params import DEFAULT_DENOISE, TraceParams
+
+#: ``cv2`` shape constants, looked up by the name used in :class:`TraceParams`.
+_KERNEL_SHAPES = {
+    "ellipse": cv2.MORPH_ELLIPSE,
+    "rect": cv2.MORPH_RECT,
+    "cross": cv2.MORPH_CROSS,
+}
 
 
 def load_image(path: str | FsPath) -> tuple[np.ndarray, float | None]:
@@ -40,6 +47,41 @@ def load_image(path: str | FsPath) -> tuple[np.ndarray, float | None]:
     return rgb, dpi
 
 
+def decode_image(data: bytes) -> np.ndarray:
+    """Turn encoded PNG/JPEG bytes into an RGB array.
+
+    The in-memory counterpart of :func:`load_image`, for callers that were
+    handed bytes over HTTP rather than a path on disk. OpenCV's decoder is
+    used because it is the one that has to read the array back anyway.
+
+    Raises :class:`ValueError` rather than returning ``None``: an undecodable
+    upload is a caller mistake worth reporting, and ``cv2.imdecode`` signals it
+    by returning nothing at all, which every caller would otherwise have to
+    remember to check.
+    """
+    buffer = np.frombuffer(data, dtype=np.uint8)
+    if buffer.size == 0:
+        raise ValueError("no image data to decode")
+    decoded = cv2.imdecode(buffer, cv2.IMREAD_COLOR)
+    if decoded is None:
+        raise ValueError("not a readable PNG, JPEG, BMP, TIFF or WebP image")
+    # imdecode yields BGR; everything downstream assumes RGB.
+    return cv2.cvtColor(decoded, cv2.COLOR_BGR2RGB)
+
+
+def encode_image(rgb: np.ndarray, fmt: str = "png") -> bytes:
+    """Encode an RGB array back to image bytes, for returning a preview.
+
+    ``fmt`` is the extension without a dot. Returns an empty result rather
+    than raising when the encoder does not know the format, so a caller asking
+    for an exotic preview simply gets nothing back instead of a failed
+    conversion whose DXF was already written.
+    """
+    suffix = (fmt or "png").lower().lstrip(".")
+    ok, encoded = cv2.imencode(f".{suffix}", cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR))
+    return encoded.tobytes() if ok else b""
+
+
 def to_grayscale(rgb: np.ndarray) -> np.ndarray:
     if rgb.ndim == 2:
         return rgb
@@ -50,10 +92,10 @@ def prepare(gray: np.ndarray, params: TraceParams) -> np.ndarray:
     """Get the grayscale image ready for thresholding.
 
     Order matters. Tone is fixed first, so the threshold has a full range to
-    work with. Median denoise comes next, removing salt-and-pepper specks
-    outright rather than letting the later steps smear them into grey blobs
-    that survive thresholding. Sharpen then blur come last, because they are
-    the two that undo each other.
+    work with. Denoise comes next, removing specks and flattening mottled
+    areas outright rather than letting the later steps smear them into grey
+    blobs that survive thresholding. Sharpen then blur come last, because they
+    are the two that undo each other.
     """
     out = gray
 
@@ -68,8 +110,8 @@ def prepare(gray: np.ndarray, params: TraceParams) -> np.ndarray:
         )
     if params.gamma != 1.0:
         out = cv2.LUT(out, _gamma_table(params.gamma))
-    if params.denoise:
-        out = cv2.medianBlur(out, _odd(params.denoise))
+    if params.denoise_enabled:
+        out = denoise(out, params)
     if params.sharpen:
         out = _unsharp(out, params.sharpen)
     if params.blur:
@@ -77,6 +119,46 @@ def prepare(gray: np.ndarray, params: TraceParams) -> np.ndarray:
         out = cv2.GaussianBlur(out, (k, k), 0)
 
     return out
+
+
+def denoise(gray: np.ndarray, params: TraceParams) -> np.ndarray:
+    """Remove noise with the filter :attr:`TraceParams.denoise_mode` names.
+
+    ``denoise`` is a single strength dial that each mode reads in its own
+    units, because the units are not interchangeable: a median of 9 deletes
+    whole letters, a bilateral of 3 does nothing at all. Keeping one dial means
+    a UI slider and a saved settings file stay meaningful when the mode is
+    changed underneath them, with :data:`~img2dxf.params.DEFAULT_DENOISE` as
+    the calibration point each mode is tuned around.
+    """
+    mode = params.denoise_mode
+    if mode == "off" or params.denoise <= 0:
+        return gray
+
+    if mode == "bilateral":
+        # Smooths flat areas while refusing to average across an edge, which
+        # is what turns a jagged oval into a curve rather than into a blob.
+        return cv2.bilateralFilter(
+            gray,
+            _odd(params.denoise),
+            params.bilateral_sigma_color,
+            params.bilateral_sigma_space,
+        )
+
+    if mode == "nlm":
+        # Compares whole patches instead of single pixels. Strongest and
+        # slowest; the strength is scaled off the mode's calibration point.
+        reference = DEFAULT_DENOISE.get("nlm", 3) or 1
+        return cv2.fastNlMeansDenoising(
+            gray,
+            None,
+            params.nlm_h * params.denoise / reference,
+            _odd(params.nlm_template_window),
+            _odd(params.nlm_search_window),
+        )
+
+    # median, and the fallback for any mode name that got past normalization.
+    return cv2.medianBlur(gray, _odd(params.denoise))
 
 
 def auto_levels(gray: np.ndarray, ignore: float = 0.5) -> np.ndarray:
@@ -170,17 +252,39 @@ def _morphology(mask: np.ndarray, params: TraceParams) -> np.ndarray:
 
     Closing runs first: doing it the other way round would delete thin
     features that closing was about to repair.
+
+    Both honour :attr:`~img2dxf.params.TraceParams.morph_kernel` and
+    ``morph_iterations``. Several light passes usually beat one heavy one —
+    repeated small discs follow an outline around, while a single large disc
+    stamps over it and rounds off corners that were meant to be sharp.
     """
+    iterations = max(1, int(params.morph_iterations))
     if params.close_px:
-        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, _kernel(params.close_px))
+        mask = cv2.morphologyEx(
+            mask, cv2.MORPH_CLOSE,
+            _kernel(params.close_px, params.morph_kernel),
+            iterations=iterations,
+        )
     if params.open_px:
-        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, _kernel(params.open_px))
+        mask = cv2.morphologyEx(
+            mask, cv2.MORPH_OPEN,
+            _kernel(params.open_px, params.morph_kernel),
+            iterations=iterations,
+        )
     return mask
 
 
-def _kernel(radius: int) -> np.ndarray:
+def _kernel(radius: int, shape: str = "ellipse") -> np.ndarray:
+    """A structuring element of the given radius.
+
+    The shape defaults to an ellipse rather than the rectangle OpenCV would
+    give you, because a circle closed with a square kernel comes out with
+    flats on it — the most visible way to get morphology wrong.
+    """
     size = _odd(radius)
-    return cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (size, size))
+    return cv2.getStructuringElement(
+        _KERNEL_SHAPES.get(shape, cv2.MORPH_ELLIPSE), (size, size)
+    )
 
 
 def _odd(radius: int) -> int:

@@ -358,3 +358,107 @@ commits; pass `--notes notes.md` to write your own.
 ```powershell
 .\.venv\Scripts\python.exe -m pytest
 ```
+
+---
+
+## Web Version
+
+zicengine ships a full localhost web UI so you can test the conversion
+engine without downloading the `.exe` first.
+
+### Architecture
+
+```
+browser (Vite, :5173)
+    └── /api/* proxy ──► FastAPI backend (:8000)
+                              └── imports core/img2dxf (shared engine)
+```
+
+The Python engine is never rewritten in JavaScript. The web UI is a thin HTTP
+wrapper around the same tracing code the desktop app uses.
+
+### Quick start (Windows)
+
+```bat
+web\run.bat
+```
+
+### Quick start (Linux / macOS)
+
+```bash
+bash web/run.sh
+```
+
+Both scripts install dependencies automatically and open the UI on
+**http://localhost:5173**.
+
+### Manual
+
+```bash
+# Backend
+cd web/backend
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
+
+# Frontend (separate terminal)
+cd web/frontend
+npm install
+npm run dev
+```
+
+### curl example
+
+```bash
+curl -X POST http://localhost:8000/convert \
+  -F "file=@logo.png" \
+  -F "width_mm=80" \
+  -F "preset=Logo / clipart" \
+  -F "denoise=true" \
+  -F "morphology=true" \
+  -F "shape_fit=true" \
+  -F "vector_snap=true" \
+  -F "dxf_version=R2010" \
+  --output output.dxf
+```
+
+See [`web/README.md`](web/README.md) for the full API reference.
+
+---
+
+## Monorepo layout
+
+```
+ziconvert/
+├── core/                   ← shared Python engine (zero UI deps)
+│   ├── img2dxf/
+│   │   ├── pipeline.py     ← main run() entry point
+│   │   ├── preprocess.py   ← bilateral filter, morphology, auto-levels
+│   │   ├── shape_fit.py    ← contour-to-primitive snapping public API
+│   │   ├── trace.py        ← contour extraction and smoothing
+│   │   ├── arcfit.py       ← arc and circle recovery
+│   │   ├── straighten.py   ← vector snap (H/V lines, right angles)
+│   │   ├── export_dxf.py   ← DXF writer
+│   │   ├── export_svg.py   ← SVG writer
+│   │   └── params.py       ← TraceParams dataclass + PRESETS
+│   └── tests/
+│       ├── test_preprocess.py  ← bilateral, morphology, binarize
+│       ├── test_shape_fit.py   ← circle/ellipse/rect snapping
+│       └── ...
+│
+├── desktop/                ← Tkinter desktop app → .exe
+│   ├── app.py
+│   └── img2dxf_gui/
+│
+├── web/                    ← localhost web UI
+│   ├── backend/main.py     ← FastAPI wrapper around core/
+│   ├── frontend/src/       ← Vite + React + TanStack Query
+│   ├── run.bat             ← one-command Windows launcher
+│   └── run.sh              ← one-command Linux/macOS launcher
+│
+├── docs/
+├── pyproject.toml
+└── requirements.txt
+```
+
+Dependencies flow **one way only**: `desktop/` → `core/`, `web/backend/` → `core/`.
+The engine never imports from either UI.
