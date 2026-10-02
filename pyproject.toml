@@ -1,35 +1,49 @@
-[build-system]
-requires = ["setuptools>=68"]
-build-backend = "setuptools.build_meta"
-
-[project]
-name = "img2dxf"
-version = "0.1.0"
-description = "Convert PNG/JPEG images into laser-ready DXF contour outlines"
-readme = "README.md"
-requires-python = ">=3.10"
-dependencies = [
-    "numpy>=1.24",
-    "opencv-python-headless>=4.8",
-    "pillow>=10.0",
-    "ezdxf>=1.3",
-    "pyclipper>=1.3",
-]
-
-[project.optional-dependencies]
-# Drag-and-drop only; the GUI falls back to the Open button without it.
-dnd = ["tkinterdnd2>=0.4"]
-dev = ["pytest>=8.0"]
-
-[project.scripts]
-img2dxf = "img2dxf.cli:main"
-
-[tool.setuptools.packages.find]
-include = ["img2dxf*"]
+# Monorepo tooling configuration for zicengine.
+#
+# This file deliberately has no [project] and no [build-system] table: the
+# repo root is a workspace, not a package. The three things that actually ship
+# have their own metadata --
+#
+#   core/pyproject.toml     -> "img2dxf"          (the engine, no UI deps)
+#   desktop/pyproject.toml  -> "img2dxf-desktop"  (the Tkinter app)
+#   web/frontend/package.json -> the browser UI
+#
+# What lives here is the developer experience: one `pytest` from the root runs
+# every test suite, one `ruff check .` lints every Python file, and both work
+# straight after a clone with no install step, because `pythonpath` puts the
+# two source trees on sys.path for the test process.
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["core/tests", "desktop/tests", "web/backend/tests"]
+pythonpath = ["core", "desktop", "web/backend"]
+addopts = "-ra"
 filterwarnings = [
     # ezdxf 1.4 still sets .shape on arrays; nothing we can fix from here.
     "ignore:Setting the shape on a NumPy array:DeprecationWarning",
 ]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+extend-exclude = [
+    ".venv",
+    "web/frontend",
+    "desktop/dist",
+    "desktop/build",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM"]
+ignore = [
+    # `X | Y` in annotations is fine, but the union alias form trips this on
+    # 3.10 targets and adds nothing here.
+    "UP007",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011"]
+"**/tests/*" = ["B011"]
+
+[tool.coverage.run]
+source = ["core/img2dxf"]
+omit = ["*/tests/*"]

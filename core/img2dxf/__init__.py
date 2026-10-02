@@ -1,6 +1,6 @@
 """img2dxf — turn PNG/JPEG images into laser-ready DXF contour outlines."""
 
-from .dxfwrite import write_dxf
+from .export_dxf import write_dxf
 from .geometry import Bounds, Path
 from .params import DXF_VERSIONS, PRESETS, TraceParams
 from .pipeline import TraceResult, run, run_file

@@ -5,7 +5,7 @@ from __future__ import annotations
 import ezdxf
 import pytest
 
-from img2dxf.dxfwrite import write_dxf
+from img2dxf.export_dxf import write_dxf
 from img2dxf.params import TraceParams
 from img2dxf.pipeline import run
 

@@ -9,14 +9,14 @@ from tkinter import filedialog, messagebox, simpledialog, ttk
 
 import numpy as np
 
-from .. import settings as settings_io
-from ..dxfwrite import units_are_declared, write_dxf
-from ..geometry import width_for_reference
-from ..params import TraceParams
-from ..pipeline import TraceResult
-from ..preprocess import load_image
-from ..svgwrite import write_svg
-from ..transform import normalize_box
+from img2dxf import settings as settings_io
+from img2dxf.export_dxf import units_are_declared, write_dxf
+from img2dxf.geometry import width_for_reference
+from img2dxf.params import TraceParams
+from img2dxf.pipeline import TraceResult
+from img2dxf.preprocess import load_image
+from img2dxf.export_svg import write_svg
+from img2dxf.transform import normalize_box
 from . import recent
 from .controls import ControlPanel
 from .tooltips import GUIDE, TOOLBAR_HELP, attach

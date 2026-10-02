@@ -11,7 +11,7 @@ import pytest
 from ezdxf.math import bulge_to_arc
 
 from img2dxf.arcfit import fit_bulges, fit_circle
-from img2dxf.dxfwrite import write_dxf
+from img2dxf.export_dxf import write_dxf
 from img2dxf.params import TraceParams
 from img2dxf.pipeline import run
 

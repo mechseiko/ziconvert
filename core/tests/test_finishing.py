@@ -9,7 +9,7 @@ import pytest
 
 from img2dxf.arcfit import circle_points, flatten_ring
 from img2dxf.detail import MAX_FACTOR, resolve_detail
-from img2dxf.dxfwrite import write_dxf
+from img2dxf.export_dxf import write_dxf
 from img2dxf.params import TraceParams
 from img2dxf.pipeline import run
 from img2dxf.straighten import (

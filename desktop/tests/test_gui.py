@@ -21,7 +21,7 @@ def root():
 
 
 def test_controls_round_trip_every_preset(root):
-    from img2dxf.gui.controls import ControlPanel
+    from img2dxf_gui.controls import ControlPanel
     from img2dxf.params import PRESETS
 
     panel = ControlPanel(root, lambda: None)
@@ -35,7 +35,7 @@ def test_controls_round_trip_every_preset(root):
 
 
 def test_bad_entry_text_falls_back_instead_of_raising(root):
-    from img2dxf.gui.controls import ControlPanel
+    from img2dxf_gui.controls import ControlPanel
 
     panel = ControlPanel(root, lambda: None)
     panel.set_field("width_mm", "not a number")
@@ -46,7 +46,7 @@ def test_bad_entry_text_falls_back_instead_of_raising(root):
 
 
 def test_mode_change_hides_irrelevant_sliders(root):
-    from img2dxf.gui.controls import ControlPanel
+    from img2dxf_gui.controls import ControlPanel
 
     panel = ControlPanel(root, lambda: None)
     panel.set_field("mode", "fixed")
@@ -60,7 +60,7 @@ def test_mode_change_hides_irrelevant_sliders(root):
 
 
 def test_worker_delivers_a_result(root, square_image):
-    from img2dxf.gui.worker import TraceWorker
+    from img2dxf_gui.worker import TraceWorker
     from img2dxf.params import TraceParams
 
     delivered = []
@@ -85,7 +85,7 @@ def test_worker_delivers_a_result(root, square_image):
 
 
 def test_preview_renders_each_view(root, ring_image):
-    from img2dxf.gui.preview import VIEWS, ViewState, render
+    from img2dxf_gui.preview import VIEWS, ViewState, render
     from img2dxf.params import TraceParams
     from img2dxf.pipeline import run
 
@@ -98,7 +98,7 @@ def test_preview_renders_each_view(root, ring_image):
 
 
 def test_preview_draws_discarded_contours(root, square_image):
-    from img2dxf.gui.preview import ViewState, render
+    from img2dxf_gui.preview import ViewState, render
     from img2dxf.params import TraceParams
     from img2dxf.pipeline import run
 
@@ -115,7 +115,7 @@ def test_preview_draws_discarded_contours(root, square_image):
 
 
 def test_preview_without_an_image_is_none():
-    from img2dxf.gui.preview import ViewState, render
+    from img2dxf_gui.preview import ViewState, render
 
     assert render("Overlay", None, None, ViewState(), (100, 100)) is None
 
@@ -124,7 +124,7 @@ def test_preview_without_an_image_is_none():
 
 
 def test_canvas_and_image_coordinates_round_trip():
-    from img2dxf.gui.preview import ViewState
+    from img2dxf_gui.preview import ViewState
 
     state = ViewState()
     state.fit((400, 300), (800, 600))
@@ -137,7 +137,7 @@ def test_canvas_and_image_coordinates_round_trip():
 
 
 def test_fit_centres_the_image():
-    from img2dxf.gui.preview import ViewState
+    from img2dxf_gui.preview import ViewState
 
     state = ViewState()
     state.fit((100, 100), (400, 200))
@@ -148,7 +148,7 @@ def test_fit_centres_the_image():
 
 
 def test_zoom_keeps_the_point_under_the_cursor_still():
-    from img2dxf.gui.preview import ViewState
+    from img2dxf_gui.preview import ViewState
 
     state = ViewState()
     state.fit((200, 200), (400, 400))
@@ -158,7 +158,7 @@ def test_zoom_keeps_the_point_under_the_cursor_still():
 
 
 def test_zoom_is_clamped():
-    from img2dxf.gui.preview import MAX_ZOOM, MIN_ZOOM, ViewState
+    from img2dxf_gui.preview import MAX_ZOOM, MIN_ZOOM, ViewState
 
     state = ViewState()
     for _ in range(80):
@@ -174,7 +174,7 @@ def test_zoom_is_clamped():
 
 def test_successive_crops_compose_rather_than_reset():
     """A second crop is drawn on the already-cropped image, not the original."""
-    from img2dxf.gui.app import _compose_crop
+    from img2dxf_gui.app import _compose_crop
 
     first = (0.0, 0.0, 0.5, 1.0)
     # The right half of what is now shown is the original 0.25..0.5 band.
@@ -184,14 +184,14 @@ def test_successive_crops_compose_rather_than_reset():
 
 
 def test_first_crop_passes_through():
-    from img2dxf.gui.app import _compose_crop
+    from img2dxf_gui.app import _compose_crop
 
     box = (0.1, 0.2, 0.8, 0.9)
     assert _compose_crop(None, box) == box
 
 
 def test_control_panel_reports_and_clears_the_crop(root):
-    from img2dxf.gui.controls import ControlPanel
+    from img2dxf_gui.controls import ControlPanel
 
     panel = ControlPanel(root, lambda: None)
     assert panel.crop() is None
@@ -205,7 +205,7 @@ def test_control_panel_reports_and_clears_the_crop(root):
 
 def test_preset_change_keeps_the_user_framing(root):
     """Presets describe tracing, not which part of the photo is wanted."""
-    from img2dxf.gui.controls import ControlPanel
+    from img2dxf_gui.controls import ControlPanel
 
     panel = ControlPanel(root, lambda: None)
     panel.set_field("crop", (0.2, 0.2, 0.8, 0.8))
@@ -218,7 +218,7 @@ def test_preset_change_keeps_the_user_framing(root):
 
 
 def test_ninety_degree_buttons_wrap(root):
-    from img2dxf.gui.controls import ControlPanel
+    from img2dxf_gui.controls import ControlPanel
 
     panel = ControlPanel(root, lambda: None)
     for _ in range(3):
@@ -230,7 +230,7 @@ def test_ninety_degree_buttons_wrap(root):
 
 
 def test_recent_files_skip_entries_that_moved(tmp_path, monkeypatch):
-    from img2dxf.gui import recent
+    from img2dxf_gui import recent
 
     store = tmp_path / "recent.json"
     monkeypatch.setattr(recent, "_STORE", store)
@@ -244,7 +244,7 @@ def test_recent_files_skip_entries_that_moved(tmp_path, monkeypatch):
 
 
 def test_recent_files_are_newest_first_and_deduplicated(tmp_path, monkeypatch):
-    from img2dxf.gui import recent
+    from img2dxf_gui import recent
 
     monkeypatch.setattr(recent, "_STORE", tmp_path / "recent.json")
     first = tmp_path / "a.png"
@@ -294,7 +294,7 @@ def bed_polygons(app):
 def loaded_app(root, square_image, tmp_path):
     import cv2
 
-    from img2dxf.gui.app import App
+    from img2dxf_gui.app import App
 
     path = tmp_path / "square.png"
     cv2.imwrite(str(path), square_image)
@@ -333,7 +333,7 @@ def test_no_bed_configured_draws_nothing(loaded_app):
 
 
 def test_bed_outline_turns_red_when_the_job_overflows(loaded_app, root):
-    from img2dxf.gui.preview import BED_OK_COLOR, BED_OVER_COLOR
+    from img2dxf_gui.preview import BED_OK_COLOR, BED_OVER_COLOR
 
     def outline(width, height):
         set_bed(root, loaded_app, width, height)
@@ -379,7 +379,7 @@ def test_set_size_does_nothing_without_a_measurement(loaded_app):
 
 def test_layout_fields_survive_a_preset_change(root):
     """Bed and tile settings describe the machine, not the tracing style."""
-    from img2dxf.gui.controls import ControlPanel
+    from img2dxf_gui.controls import ControlPanel
 
     panel = ControlPanel(root, lambda: None)
     panel.set_field("bed_width_mm", "400")
@@ -398,7 +398,7 @@ def test_layout_fields_survive_a_preset_change(root):
 
 def test_worker_stops_cleanly(root, square_image):
     """A stopped worker must leave nothing scheduled against the widget."""
-    from img2dxf.gui.worker import TraceWorker
+    from img2dxf_gui.worker import TraceWorker
     from img2dxf.params import TraceParams
 
     worker = TraceWorker(root, lambda r, p: None, lambda e: None)
@@ -424,7 +424,7 @@ def test_tracing_thread_never_runs_tk_finalizers(root, square_image):
     import gc
     import tkinter as tk
 
-    from img2dxf.gui.worker import TraceWorker
+    from img2dxf_gui.worker import TraceWorker
     from img2dxf.params import TraceParams
 
     # Garbage Tk variables, waiting for whichever thread collects first.
@@ -453,7 +453,7 @@ def test_every_parameter_has_help():
     """A control with no explanation is a control nobody will touch."""
     import dataclasses
 
-    from img2dxf.gui.tooltips import HELP
+    from img2dxf_gui.tooltips import HELP
     from img2dxf.params import TraceParams
 
     fields = {f.name for f in dataclasses.fields(TraceParams)}
@@ -462,14 +462,14 @@ def test_every_parameter_has_help():
 
 def test_help_text_is_not_a_restatement_of_the_label():
     """Help that only repeats the control's name is worse than none."""
-    from img2dxf.gui.tooltips import HELP
+    from img2dxf_gui.tooltips import HELP
 
     for field, text in HELP.items():
         assert len(text) > 40, f"{field} has nothing useful to say"
 
 
 def test_controls_carry_hover_help(root):
-    from img2dxf.gui.controls import ControlPanel
+    from img2dxf_gui.controls import ControlPanel
 
     panel = ControlPanel(root, lambda: None)
     root.update()
@@ -488,7 +488,7 @@ def test_controls_carry_hover_help(root):
 
 
 def test_a_tooltip_appears_and_goes_away(root):
-    from img2dxf.gui.tooltips import Tooltip
+    from img2dxf_gui.tooltips import Tooltip
 
     label = tk.Label(root, text="hover me")
     label.pack()
@@ -505,7 +505,7 @@ def test_a_tooltip_appears_and_goes_away(root):
 
 def test_a_tooltip_leaves_nothing_scheduled_when_its_widget_dies(root):
     """An `after` outliving its widget is what prints 'invalid command name'."""
-    from img2dxf.gui.tooltips import Tooltip
+    from img2dxf_gui.tooltips import Tooltip
 
     label = tk.Label(root, text="hover me")
     label.pack()
@@ -522,7 +522,7 @@ def test_a_tooltip_leaves_nothing_scheduled_when_its_widget_dies(root):
 
 
 def test_empty_help_attaches_nothing(root):
-    from img2dxf.gui.tooltips import attach
+    from img2dxf_gui.tooltips import attach
 
     label = tk.Label(root, text="x")
     assert attach(label, "") is None
@@ -530,7 +530,7 @@ def test_empty_help_attaches_nothing(root):
 
 def test_the_guide_covers_the_whole_job(root):
     """It has to get someone from an image file to a cut part."""
-    from img2dxf.gui.tooltips import GUIDE
+    from img2dxf_gui.tooltips import GUIDE
 
     body = " ".join(heading + " " + text for heading, text in GUIDE).lower()
     for topic in ("open", "millimetres", "overlay", "kerf", "export", "calibrat"):
@@ -540,7 +540,7 @@ def test_the_guide_covers_the_whole_job(root):
 def test_the_guide_opens_once(root, square_image, tmp_path):
     import cv2
 
-    from img2dxf.gui.app import App
+    from img2dxf_gui.app import App
 
     path = tmp_path / "square.png"
     cv2.imwrite(str(path), square_image)

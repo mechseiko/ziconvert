@@ -10,10 +10,10 @@ import ezdxf
 import numpy as np
 import pytest
 
-from img2dxf.dxfwrite import write_dxf
+from img2dxf.export_dxf import write_dxf
 from img2dxf.params import TraceParams
 from img2dxf.pipeline import run
-from img2dxf.svgwrite import build_svg, write_svg
+from img2dxf.export_svg import build_svg, write_svg
 
 SVG_NS = "{http://www.w3.org/2000/svg}"
 

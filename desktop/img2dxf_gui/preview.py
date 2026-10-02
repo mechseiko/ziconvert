@@ -12,10 +12,10 @@ from dataclasses import dataclass
 import numpy as np
 from PIL import Image, ImageDraw, ImageTk
 
-from ..arcfit import circle_points, flatten_ring
-from ..params import TraceParams
-from ..pipeline import TraceResult
-from ..tabs import open_segments
+from img2dxf.arcfit import circle_points, flatten_ring
+from img2dxf.params import TraceParams
+from img2dxf.pipeline import TraceResult
+from img2dxf.tabs import open_segments
 
 VIEWS = ("Original", "Mask", "Vectors", "Overlay")
 

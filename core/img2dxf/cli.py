@@ -7,11 +7,11 @@ import sys
 from dataclasses import replace
 from pathlib import Path
 
-from .dxfwrite import write_dxf
+from .export_dxf import write_dxf
 from .params import DXF_VERSIONS, PRESETS, TraceParams
 from .pipeline import run_file
 from . import settings as settings_io
-from .svgwrite import write_svg
+from .export_svg import write_svg
 
 
 def build_parser() -> argparse.ArgumentParser:

@@ -6,7 +6,7 @@ import ezdxf
 import numpy as np
 import pytest
 
-from img2dxf.dxfwrite import write_dxf
+from img2dxf.export_dxf import write_dxf
 from img2dxf.params import TraceParams
 from img2dxf.pipeline import run
 from img2dxf.tabs import open_segments, split_ring, total_length

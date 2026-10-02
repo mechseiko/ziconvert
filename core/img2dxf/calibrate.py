@@ -226,7 +226,7 @@ def checklist(result=None) -> str:
 
 def write(out_path: str | FsPath, params: TraceParams | None = None):
     """Write the calibration DXF and return ``(path, result)``."""
-    from .dxfwrite import write_dxf
+    from .export_dxf import write_dxf
     from .pipeline import run
 
     params = params or calibration_params()
@@ -261,7 +261,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if str(args.output).lower().endswith(".svg"):
         from .pipeline import run
-        from .svgwrite import write_svg
+        from .export_svg import write_svg
 
         result = run(build_image(), params)
         write_svg(result.paths, args.output, params, result.bounds)

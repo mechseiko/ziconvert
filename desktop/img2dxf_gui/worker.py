@@ -19,8 +19,8 @@ from typing import Callable
 
 import numpy as np
 
-from ..params import TraceParams
-from ..pipeline import TraceResult, run
+from img2dxf.params import TraceParams
+from img2dxf.pipeline import TraceResult, run
 
 #: Milliseconds of quiet before a parameter change triggers a re-trace.
 DEBOUNCE_MS = 150

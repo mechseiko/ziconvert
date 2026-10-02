@@ -12,7 +12,7 @@ import sys
 
 def main() -> int:
     try:
-        from img2dxf.gui import launch
+        from img2dxf_gui import launch
 
         launch()
         return 0

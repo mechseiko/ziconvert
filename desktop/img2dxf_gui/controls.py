@@ -6,9 +6,9 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Callable
 
-from .. import settings as settings_io
+from img2dxf import settings as settings_io
 from . import tooltips
-from ..params import DEFAULT_PRESET, DXF_VERSIONS, PRESETS, TraceParams
+from img2dxf.params import DEFAULT_PRESET, DXF_VERSIONS, PRESETS, TraceParams
 
 MODES = ("otsu", "fixed", "adaptive", "posterize", "edges")
 

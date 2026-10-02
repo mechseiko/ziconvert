@@ -1,7 +1,7 @@
 import ezdxf
 import pytest
 
-from img2dxf.dxfwrite import INSUNITS_MM, write_dxf
+from img2dxf.export_dxf import INSUNITS_MM, write_dxf
 from img2dxf.params import TraceParams
 from img2dxf.pipeline import run
 
@@ -91,7 +91,7 @@ def test_empty_result_still_writes_a_valid_file(tmp_path):
 
 def test_r12_omits_unsupported_units_header(square_image, tmp_path):
     """R12 has no $INSUNITS; writing it anyway makes ezdxf complain."""
-    from img2dxf.dxfwrite import units_are_declared
+    from img2dxf.export_dxf import units_are_declared
 
     _, doc = export(square_image, TraceParams(dxf_version="R12"), tmp_path, "r12.dxf")
     assert "$INSUNITS" not in doc.header

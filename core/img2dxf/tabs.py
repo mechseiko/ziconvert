@@ -6,8 +6,8 @@ a few tenths of a millimetre uncut keeps it in place until it is snapped out.
 
 This is applied when drawing and when writing, not inside the pipeline: a gap
 partway along a ring cannot be carried by :class:`~img2dxf.geometry.Path`,
-whose rings are closed by definition. Both :mod:`img2dxf.dxfwrite` and
-:mod:`img2dxf.gui.preview` call :func:`split_ring`, so the preview shows
+whose rings are closed by definition. Both :mod:`img2dxf.export_dxf` and
+:mod:`img2dxf_gui.preview` call :func:`split_ring`, so the preview shows
 exactly the gaps that get written.
 """
 
