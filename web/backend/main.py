@@ -14,8 +14,8 @@ Or use the provided ``web/run.bat`` / ``web/run.sh`` to launch both tiers.
 from __future__ import annotations
 
 import io
-import os
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -35,9 +35,9 @@ for _candidate in (_CORE,):
 # ---------------------------------------------------------------------------
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import Response
 
-from img2dxf import PRESETS, TraceParams, run, write_dxf
+from img2dxf import PRESETS, TraceParams, run
 from img2dxf.preprocess import decode_image
 from img2dxf.export_dxf import build_document
 
@@ -159,8 +159,7 @@ async def convert(
     params = params.with_denoise(denoise)
     params = params.with_morphology(morphology)
 
-    from dataclasses import replace as _replace
-    params = _replace(
+    params = replace(
         params,
         width_mm=width_mm,
         shape_fit=shape_fit,
