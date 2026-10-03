@@ -42,7 +42,6 @@ IMAGE_TYPES = [
 ]
 
 EXPORT_TYPES = [("DXF", "*.dxf"), ("SVG", "*.svg")]
-SETTINGS_TYPES = [("img2dxf settings", "*.json"), ("All files", "*.*")]
 
 #: Redrawing on every pixel of a window resize is wasteful; wait for a pause.
 _RESIZE_DEBOUNCE_MS = 120
@@ -55,7 +54,7 @@ _MEASURE_COLOR = "#d03020"
 class App(ttk.Frame):
     def __init__(self, master: tk.Tk) -> None:
         super().__init__(master)
-        self.master.title("img2dxf - image to laser DXF")
+        self.master.title("ziconvert - image to laser DXF")
         self.master.minsize(940, 600)
         _size_to_screen(self.master)
 
@@ -146,17 +145,6 @@ class App(ttk.Frame):
         )
         self._export_button.pack(side="left", padx=6)
         attach(self._export_button, TOOLBAR_HELP["export"])
-
-        settings_button = ttk.Menubutton(bar, text="Settings")
-        menu = tk.Menu(settings_button, tearoff=False)
-        menu.add_command(label="Save settings...", command=self.save_settings)
-        menu.add_command(label="Load settings...", command=self.load_settings)
-        menu.add_separator()
-        menu.add_command(label="Save as preset...", command=self.save_preset)
-        menu.add_command(label="Delete preset...", command=self.delete_preset)
-        settings_button.configure(menu=menu)
-        settings_button.pack(side="left", padx=(0, 6))
-        attach(settings_button, TOOLBAR_HELP["settings"])
 
         self._view_var = tk.StringVar(value="Overlay")
         ttk.Label(bar, text="View").pack(side="left", padx=(16, 4))
@@ -372,77 +360,6 @@ class App(ttk.Frame):
         ttk.Button(window, text="Close", command=window.destroy).pack(pady=(0, 10))
         window.protocol("WM_DELETE_WINDOW", window.destroy)
         self._guide = window
-
-    # -- settings -------------------------------------------------------
-
-    def save_settings(self) -> None:
-        """Write every parameter to JSON, so this job can be repeated."""
-        default = (
-            settings_io.companion_path(self._image_path).name
-            if self._image_path
-            else "settings.json"
-        )
-        path = filedialog.asksaveasfilename(
-            title="Save settings", defaultextension=".json",
-            initialfile=default, filetypes=SETTINGS_TYPES,
-        )
-        if not path:
-            return
-        try:
-            settings_io.save(self.controls.params(), path)
-        except OSError as exc:
-            messagebox.showerror("Could not save settings", str(exc))
-            return
-        self._set_status(f"Saved settings to {Path(path).name}")
-
-    def load_settings(self) -> None:
-        path = filedialog.askopenfilename(
-            title="Load settings", filetypes=SETTINGS_TYPES
-        )
-        if not path:
-            return
-        try:
-            params = settings_io.load(path)
-        except (OSError, ValueError) as exc:
-            messagebox.showerror("Could not load settings", str(exc))
-            return
-
-        self.controls.set_params(params, framing=True)
-        self._set_status(f"Loaded settings from {Path(path).name}")
-        self._retrace()
-
-    def save_preset(self) -> None:
-        """Name the current settings so they appear in the preset list."""
-        name = simpledialog.askstring(
-            "Save preset", "Name for this preset:", parent=self.master
-        )
-        if not name or not name.strip():
-            return
-        try:
-            settings_io.save_preset(name, self.controls.params())
-        except ValueError as exc:
-            messagebox.showerror("Could not save preset", str(exc))
-            return
-        self.controls.refresh_presets(select=name.strip())
-        self._set_status(f"Saved preset '{name.strip()}'")
-
-    def delete_preset(self) -> None:
-        own = settings_io.load_presets()
-        if not own:
-            messagebox.showinfo(
-                "No presets", "You have not saved any presets of your own yet."
-            )
-            return
-        name = simpledialog.askstring(
-            "Delete preset",
-            "Which preset?\n\n" + "\n".join(sorted(own)),
-            parent=self.master,
-        )
-        if not name or name.strip() not in own:
-            return
-        settings_io.delete_preset(name.strip())
-        self.controls.refresh_presets()
-        self._set_status(f"Deleted preset '{name.strip()}'")
 
     # -- tracing --------------------------------------------------------
 

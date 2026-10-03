@@ -1,12 +1,10 @@
 import { useState, useCallback } from 'react'
 import FileUpload from '@/components/FileUpload'
-import SettingsPanel from '@/components/SettingsPanel'
 import ResultPreview from '@/components/ResultPreview'
 import { useConvertImage } from '@/api/convert'
-import type { ConvertSettings } from '@/api/convert'
 import { Cpu, Github, Zap } from 'lucide-react'
 
-const DEFAULT_SETTINGS: ConvertSettings = {
+const LASERCUT_SETTINGS: ConvertSettings = {
   width_mm: 100,
   preset: 'Logo / clipart',
   denoise: true,
@@ -18,7 +16,6 @@ const DEFAULT_SETTINGS: ConvertSettings = {
 
 export default function App() {
   const [file, setFile] = useState<File | null>(null)
-  const [settings, setSettings] = useState<ConvertSettings>(DEFAULT_SETTINGS)
 
   const { mutate, data, isPending, isError, error, isSuccess, reset } =
     useConvertImage()
@@ -33,7 +30,7 @@ export default function App() {
 
   const handleConvert = () => {
     if (!file) return
-    mutate({ file, settings })
+    mutate({ file, settings: LASERCUT_SETTINGS })
   }
 
   return (
@@ -46,7 +43,7 @@ export default function App() {
               <Cpu size={16} className="text-white" />
             </div>
             <div>
-              <span className="font-bold text-white tracking-tight">zicengine</span>
+              <span className="font-bold text-white tracking-tight">ziconvert</span>
               <span className="ml-2 text-xs text-brand-400 font-mono bg-brand-950 border border-brand-800 px-1.5 py-0.5 rounded">
                 v0.1
               </span>
@@ -59,7 +56,7 @@ export default function App() {
               Image → DXF converter
             </span>
             <a
-              href="https://github.com/aryansaraogi/dxfconvertor"
+              href="https://github.com/mechseiko/ziconvert"
               target="_blank"
               rel="noreferrer"
               className="btn-secondary !px-3 !py-2"
@@ -81,12 +78,11 @@ export default function App() {
         <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight mb-4">
           <span className="gradient-text text-glow">Image to DXF</span>
           <br className="hidden sm:block" />
-          <span className="text-white"> in seconds</span>
+          <span className="text-white"> Converter</span>
         </h1>
         <p className="text-slate-400 text-lg max-w-xl mx-auto leading-relaxed">
-          Upload a PNG or JPEG. Get a laser-ready DXF with bilateral denoising,
-          morphological cleanup, and primitive snapping — all via the
-          zicengine tracing core.
+          Upload a PNG or JPEG image and convert it to a DXF file suitable for
+          CAD and laser cutting applications. Processing is done locally on your machine.
         </p>
       </section>
 
@@ -113,14 +109,8 @@ export default function App() {
             />
           </div>
 
-          {/* Right column — settings + convert */}
+          {/* Right column — convert button */}
           <div className="flex flex-col gap-4">
-            <SettingsPanel
-              settings={settings}
-              onChange={setSettings}
-              disabled={isPending}
-            />
-
             <button
               className="btn-primary w-full py-4 text-base glow-brand"
               onClick={handleConvert}
@@ -154,7 +144,7 @@ export default function App() {
             <div className="glass p-4 text-xs text-slate-500 space-y-1.5 animate-fade-in">
               <div className="flex justify-between">
                 <span>Engine</span>
-                <span className="text-slate-400 font-mono">zicengine core</span>
+                <span className="text-slate-400 font-mono">ziconvert core</span>
               </div>
               <div className="flex justify-between">
                 <span>Backend</span>
@@ -171,14 +161,14 @@ export default function App() {
 
       {/* ── Footer ────────────────────────────────────────────────────── */}
       <footer className="border-t border-white/5 py-6 text-center text-xs text-slate-600">
-        zicengine · spinoff of{' '}
+        ziconvert ·{' '}
         <a
-          href="https://github.com/aryansaraogi/dxfconvertor"
+          href="https://github.com/mechseiko/ziconvert"
           className="text-slate-500 hover:text-slate-300 transition-colors"
           target="_blank"
           rel="noreferrer"
         >
-          dxfconvertor
+          mechseiko/ziconvert
         </a>{' '}
         · MIT licence
       </footer>

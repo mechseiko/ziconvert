@@ -1,4 +1,4 @@
-"""FastAPI web backend for zicengine.
+"""FastAPI web backend for ziconvert.
 
 Wraps the shared core/ engine so a browser can call it without installing
 the desktop app.  The frontend at web/frontend/ proxies requests here.
@@ -45,9 +45,9 @@ from img2dxf.export_dxf import build_document
 # App
 # ---------------------------------------------------------------------------
 app = FastAPI(
-    title="zicengine Web API",
+    title="ziconvert Web API",
     description=(
-        "HTTP wrapper around the zicengine core tracing engine. "
+        "HTTP wrapper around the ziconvert core tracing engine. "
         "Upload an image, receive a DXF."
     ),
     version="0.1.0",
@@ -218,7 +218,7 @@ async def convert(
 async def root():
     """API root — describes available endpoints."""
     return {
-        "service": "zicengine Web API",
+        "service": "ziconvert Web API",
         "version": "0.1.0",
         "endpoints": {
             "GET  /health": "Liveness check",
