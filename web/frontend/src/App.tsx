@@ -1,21 +1,26 @@
 import { useState, useCallback } from 'react'
 import FileUpload from '@/components/FileUpload'
 import ResultPreview from '@/components/ResultPreview'
+import SettingsPanel from '@/components/SettingsPanel'
 import { useConvertImage } from '@/api/convert'
+import type { ConvertSettings } from '@/api/convert'
 import { Cpu, Github, Zap } from 'lucide-react'
 
-const LASERCUT_SETTINGS: ConvertSettings = {
+const DEFAULT_SETTINGS: ConvertSettings = {
   width_mm: 100,
   preset: 'Logo / clipart',
   denoise: true,
   morphology: true,
   shape_fit: true,
   vector_snap: true,
+  straighten: true,
+  sr_backend: 'off',
   dxf_version: 'R2010',
 }
 
 export default function App() {
   const [file, setFile] = useState<File | null>(null)
+  const [settings, setSettings] = useState<ConvertSettings>(DEFAULT_SETTINGS)
 
   const { mutate, data, isPending, isError, error, isSuccess, reset } =
     useConvertImage()
@@ -30,7 +35,7 @@ export default function App() {
 
   const handleConvert = () => {
     if (!file) return
-    mutate({ file, settings: LASERCUT_SETTINGS })
+    mutate({ file, settings })
   }
 
   return (
@@ -109,8 +114,14 @@ export default function App() {
             />
           </div>
 
-          {/* Right column — convert button */}
+          {/* Right column — settings + convert button */}
           <div className="flex flex-col gap-4">
+            <SettingsPanel
+              settings={settings}
+              onChange={setSettings}
+              disabled={isPending}
+            />
+
             <button
               className="btn-primary w-full py-4 text-base glow-brand"
               onClick={handleConvert}

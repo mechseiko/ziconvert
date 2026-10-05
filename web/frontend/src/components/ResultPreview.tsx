@@ -15,6 +15,7 @@ interface Meta {
   arcCount: number
   widthMm: number
   heightMm: number
+  srUsed?: string
 }
 
 interface ResultPreviewProps {
@@ -108,6 +109,14 @@ export default function ResultPreview({
               <BarChart3 size={14} className="text-slate-400 mt-0.5 flex-shrink-0" />
               <p className="text-xs font-mono text-slate-400 break-all">{summary}</p>
             </div>
+          )}
+
+          {/* Super-resolution report — only when something actually ran */}
+          {meta?.srUsed && meta.srUsed !== 'off' && (
+            <p className="text-xs text-slate-500 mb-5">
+              Upscaled with <span className="font-mono text-slate-400">{meta.srUsed}</span>
+              {meta.srUsed === 'lanczos' && ' (neural model unavailable — degraded resize)'}
+            </p>
           )}
 
           {/* Download button */}

@@ -14,6 +14,13 @@ export interface ConvertSettings {
   morphology: boolean
   shape_fit: boolean
   vector_snap: boolean
+  straighten: boolean
+  sr_backend: string
+  /** Omitted (undefined) keeps the preset's value. */
+  snap_axis_deg?: number
+  snap_merge_mm?: number
+  snap_right_angle_deg?: number
+  snap_circle_mm?: number
   dxf_version: string
 }
 
@@ -27,6 +34,7 @@ export interface ConvertResult {
     arcCount: number
     widthMm: number
     heightMm: number
+    srUsed: string
   }
 }
 
@@ -48,6 +56,20 @@ async function convertImage({ file, settings }: ConvertInput): Promise<ConvertRe
   form.append('morphology', String(settings.morphology))
   form.append('shape_fit', String(settings.shape_fit))
   form.append('vector_snap', String(settings.vector_snap))
+  form.append('straighten', String(settings.straighten))
+  form.append('sr_backend', settings.sr_backend)
+  // Optional overrides: only sent when the user typed a value.
+  for (const key of [
+    'snap_axis_deg',
+    'snap_merge_mm',
+    'snap_right_angle_deg',
+    'snap_circle_mm',
+  ] as const) {
+    const value = settings[key]
+    if (value !== undefined && Number.isFinite(value)) {
+      form.append(key, String(value))
+    }
+  }
   form.append('dxf_version', settings.dxf_version)
 
   const response = await fetch('/api/convert', {
@@ -81,6 +103,7 @@ async function convertImage({ file, settings }: ConvertInput): Promise<ConvertRe
       arcCount:    Number(response.headers.get('X-Arc-Count')    ?? 0),
       widthMm:     Number(response.headers.get('X-Width-Mm')     ?? 0),
       heightMm:    Number(response.headers.get('X-Height-Mm')    ?? 0),
+      srUsed:      response.headers.get('X-Sr-Used') ?? 'off',
     },
   }
 }
