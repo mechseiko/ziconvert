@@ -4,7 +4,13 @@ from .export_dxf import write_dxf
 from .geometry import Bounds, Path
 from .params import DXF_VERSIONS, PRESETS, TraceParams
 from .pipeline import TraceResult, run, run_file
-from .shape_fit import PrimitiveFit, PrimitiveKind, fit_primitive
+from .shape_fit import (
+    PrimitiveFit,
+    PrimitiveKind,
+    ShapeFitReport,
+    fit_primitive,
+    fit_shapes,
+)
 
 __version__ = "0.1.0"
 
@@ -15,9 +21,11 @@ __all__ = [
     "Path",
     "PrimitiveFit",
     "PrimitiveKind",
+    "ShapeFitReport",
     "TraceParams",
     "TraceResult",
     "fit_primitive",
+    "fit_shapes",
     "run",
     "run_file",
     "write_dxf",

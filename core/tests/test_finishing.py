@@ -119,14 +119,17 @@ def ground_truth():
     """The artwork traced at 8x, as a stand-in for the true outline."""
     result = run(
         logo_image(8),
-        TraceParams(width_mm=620.0, simplify_mm=0.0, fit_arcs=False,
+        TraceParams(width_mm=620.0, simplify_mm=0.0, fit_arcs=False, shape_fit=False,
                     min_area_mm2=0.0, detail=1, straighten_mm=0.0),
     )
     return np.vstack([ring for p in result.paths for ring in p.rings()])
 
 
 def rms_error(image, truth, **kw) -> tuple[float, int]:
-    result = run(image, TraceParams(width_mm=620.0, min_area_mm2=0.0, **kw))
+    # shape_fit off: snapping idealises geometry on purpose, which is not
+    # what this measurement is about — it compares the finishing passes.
+    result = run(image, TraceParams(width_mm=620.0, min_area_mm2=0.0,
+                                    shape_fit=False, **kw))
     distances = distance_to_outline(truth, outline_of(result))
     return float(np.sqrt((distances ** 2).mean())), result.vertex_count
 

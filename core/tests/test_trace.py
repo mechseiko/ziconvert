@@ -49,9 +49,14 @@ def test_posterize_emits_one_level_per_tone(gradient_image):
 
 def test_simplify_reduces_vertices(ring_image):
     # Arc fitting off: it would collapse both rings to CIRCLE entities and
-    # leave no vertices to compare.
-    detailed = run(ring_image, TraceParams(simplify_mm=0.01, fit_arcs=False))
-    coarse = run(ring_image, TraceParams(simplify_mm=1.0, fit_arcs=False))
+    # leave no vertices to compare. Shape fit off for the same reason —
+    # snapped circles report no vertices at all.
+    detailed = run(
+        ring_image, TraceParams(simplify_mm=0.01, fit_arcs=False, shape_fit=False)
+    )
+    coarse = run(
+        ring_image, TraceParams(simplify_mm=1.0, fit_arcs=False, shape_fit=False)
+    )
     assert coarse.vertex_count < detailed.vertex_count
 
 
@@ -65,8 +70,14 @@ def test_smoothing_leaves_a_square_alone(square_image):
 
 def test_smoothing_still_works_on_curves(ring_image):
     """The corner guard must not have quietly disabled smoothing."""
-    plain = run(ring_image, TraceParams(simplify_mm=0.5, smooth=0, fit_arcs=False))
-    smoothed = run(ring_image, TraceParams(simplify_mm=0.5, smooth=2, fit_arcs=False))
+    # Shape fit off: this test counts raw vertices, and a snapped circle
+    # reports none.
+    plain = run(
+        ring_image, TraceParams(simplify_mm=0.5, smooth=0, fit_arcs=False, shape_fit=False)
+    )
+    smoothed = run(
+        ring_image, TraceParams(simplify_mm=0.5, smooth=2, fit_arcs=False, shape_fit=False)
+    )
     assert smoothed.vertex_count > plain.vertex_count
 
 

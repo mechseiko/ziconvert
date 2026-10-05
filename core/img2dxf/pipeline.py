@@ -14,6 +14,7 @@ from .kerf import offset_paths
 from .order import order_paths, travel_length
 from .params import TraceParams
 from .preprocess import binarize, load_image, prepare, to_grayscale
+from .shape_fit import fit_shapes
 from .straighten import straighten_paths
 from .tile import tile_paths
 from .trace import trace_mask
@@ -68,6 +69,9 @@ class TraceResult:
     detail_factor: int = 1
     """The supersampling factor this run used."""
 
+    shapes_snapped: int = 0
+    """Rings replaced by an ideal circle, ellipse or rectangle."""
+
     travel_mm: float = 0.0
     """Distance the head moves between paths, in the order they are written."""
 
@@ -92,6 +96,8 @@ class TraceResult:
             text += " | tabbed"
         elif self.arc_count:
             text += f" | {self.arc_count} arcs"
+        if self.shapes_snapped:
+            text += f" | {self.shapes_snapped} snapped"
         if self.travel_mm:
             text += f" | {self.travel_mm / 1000:.2f} m travel"
         if self.discarded:
@@ -157,6 +163,14 @@ def run(image_rgb: np.ndarray, params: TraceParams) -> TraceResult:
     # Kerf before arcs: the arcs should describe the path the machine will
     # actually follow, not the one before compensation moved it.
     paths = offset_paths(paths, params.kerf_mm, params.kerf_side)
+
+    # Primitive snapping sits between the two: it judges the geometry the
+    # machine will actually cut (post-kerf), and the arcs it enables describe
+    # the snapped primitive rather than re-deriving the pixel staircase.
+    shapes_snapped = 0
+    if params.shape_fit:
+        shapes_snapped = fit_shapes(paths, params, px_per_mm, factor).total
+
     if params.fit_arcs:
         _fit_arcs(paths, params.simplify_mm, px_per_mm, factor)
 
@@ -181,6 +195,7 @@ def run(image_rgb: np.ndarray, params: TraceParams) -> TraceResult:
         px_per_mm=px_per_mm,
         image_size_px=(width_px, height_px),
         detail_factor=factor,
+        shapes_snapped=shapes_snapped,
         travel_mm=travel_length(paths),
         bounds=bounds,
         fits_bed=_fits(bounds, bed),
@@ -221,6 +236,10 @@ def _fit_arcs(
 
     for path in paths:
         for index, ring in enumerate(path.rings()):
+            if index in path.circles:
+                # Primitive snapping already claimed this ring; a fan of
+                # short arcs must not overwrite its single CIRCLE entity.
+                continue
             circle = fit_circle(ring, tol)
             if circle is not None:
                 path.circles[index] = circle

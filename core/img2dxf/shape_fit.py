@@ -21,6 +21,11 @@ Typical use::
 
 The module is UI-free and carries no GUI imports.  Both the desktop app and the
 web backend may import it freely.
+
+For the tracing pipeline itself there is also :func:`fit_shapes`, the batch
+pass that applies :func:`fit_primitive` to every ring of every path and
+rewrites the ones that qualify, so a traced circle leaves the engine as a true
+CIRCLE entity rather than as a few hundred short segments.
 """
 
 from __future__ import annotations
@@ -178,12 +183,14 @@ def _try_ellipse(ring: np.ndarray, tol: float) -> PrimitiveFit | None:
     except cv2.error:
         return None
 
-    semi_major = max(w, h) / 2.0
-    semi_minor = min(w, h) / 2.0
-    if semi_minor <= 0:
-        return None
-
-    # Check every vertex against the fitted ellipse equation.
+    # Check the vertices against the fitted ellipse — vertex-only, on purpose.
+    # Probing segment midpoints would be wrong here: a simplified ring is a
+    # polygon, and a polygon's chords sag away from any smooth curve by up to
+    # millimetres between sparse vertices. That sagitta is the approximation
+    # error tracing already accepted, not evidence the fit is bad. What
+    # actually marks an interpolating false fit (the ellipse fitEllipse draws
+    # through a rectangle's corners, say) is that its surface inflates far
+    # beyond the ring — which the area band below measures directly.
     angle_rad = math.radians(angle)
     cos_a, sin_a = math.cos(angle_rad), math.sin(angle_rad)
     dx = ring[:, 0] - cx
@@ -211,6 +218,20 @@ def _try_ellipse(ring: np.ndarray, tol: float) -> PrimitiveFit | None:
     if errors.max() > tol:
         return None
 
+    # Area band: the polygon and its fitted ellipse must be nearly the same
+    # size. An ellipse fitted *through* the vertices of some other shape — a
+    # rectangle's corners — swells well past the ring's edges, and its area
+    # leaves the band by half as much again; a genuine fit of a traced ring
+    # sits within a few percent even after simplification.
+    x, y = ring[:, 0], ring[:, 1]
+    poly_area = float(abs(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1))) / 2.0)
+    ellipse_area = math.pi * semi_a * semi_b
+    if poly_area <= 0 or ellipse_area <= 0:
+        return None
+    ratio = ellipse_area / poly_area
+    if not 0.8 <= ratio <= 1.25:
+        return None
+
     return PrimitiveFit(
         kind=PrimitiveKind.ELLIPSE,
         ellipse_params=(cx, cy, semi_a, semi_b, angle),
@@ -222,9 +243,12 @@ def _try_ellipse(ring: np.ndarray, tol: float) -> PrimitiveFit | None:
 def _try_rect(ring: np.ndarray, tol: float) -> PrimitiveFit | None:
     """Fit a (possibly rotated) rectangle using the minimum-area bounding box.
 
-    The test is twofold:
+    The test is threefold:
     1. Every vertex must lie within ``tol`` of the nearest edge.
-    2. The rectangle's area must be within 5 % of the polygon's area, so a
+    2. Every rectangle corner must be reached by some vertex — without this,
+       an L-shape or a notched bar whose bounding box is bigger than the shape
+       would pass the first test and snap to a rectangle it is not.
+    3. The rectangle's area must be within 5 % of the polygon's area, so a
        very irregular shape does not get snapped to its bounding box.
     """
     try:
@@ -239,6 +263,11 @@ def _try_rect(ring: np.ndarray, tol: float) -> PrimitiveFit | None:
     # Check that every ring vertex is close to the rectangle outline.
     errors = _dist_to_quadrilateral(ring, box)
     if errors.max() > tol:
+        return None
+
+    # And that the rectangle's own corners are reached by the ring.
+    corner_errors = _dist_to_ring(box, ring)
+    if corner_errors.max() > tol:
         return None
 
     # Area check: rectangle area vs polygon shoelace area.
@@ -277,8 +306,188 @@ def _dist_to_quadrilateral(pts: np.ndarray, quad: np.ndarray) -> np.ndarray:
     return min_dist
 
 
+def _dist_to_ring(pts: np.ndarray, ring: np.ndarray) -> np.ndarray:
+    """Distance from each point to its nearest position on the closed ring."""
+    n = len(pts)
+    min_dist = np.full(n, np.inf)
+    count = len(ring)
+    for i in range(count):
+        a = ring[i]
+        b = ring[(i + 1) % count]
+        ab = b - a
+        ab_len_sq = float(np.dot(ab, ab))
+        if ab_len_sq < 1e-12:
+            continue
+        ap = pts - a
+        t = np.clip((ap @ ab) / ab_len_sq, 0.0, 1.0)
+        proj = a + t[:, None] * ab
+        dist = np.hypot(pts[:, 0] - proj[:, 0], pts[:, 1] - proj[:, 1])
+        min_dist = np.minimum(min_dist, dist)
+    return min_dist
+
+
+# ---------------------------------------------------------------------------
+# Batch pass: snap every ring of every path during a pipeline run
+# ---------------------------------------------------------------------------
+
+#: An accepted ellipse is resampled at at least this many points, so the arc
+#: fitter downstream sees a smooth curve rather than a coarse polygon.
+_MIN_ELLIPSE_SAMPLES = 96
+
+
+@dataclass(slots=True)
+class ShapeFit:
+    """One ring that accepted a primitive during a pipeline run."""
+
+    path_index: int
+    ring_index: int
+    kind: PrimitiveKind
+
+
+@dataclass(slots=True)
+class ShapeFitReport:
+    """What the pass snapped, so a UI can report it instead of implying magic."""
+
+    fits: list[ShapeFit] = field(default_factory=list)
+
+    @property
+    def circles(self) -> int:
+        return sum(1 for fit in self.fits if fit.kind == PrimitiveKind.CIRCLE)
+
+    @property
+    def ellipses(self) -> int:
+        return sum(1 for fit in self.fits if fit.kind == PrimitiveKind.ELLIPSE)
+
+    @property
+    def rects(self) -> int:
+        return sum(1 for fit in self.fits if fit.kind == PrimitiveKind.RECT)
+
+    @property
+    def total(self) -> int:
+        return len(self.fits)
+
+
+def fit_shapes(
+    paths: list["Path"],
+    params: "TraceParams",
+    px_per_mm: float,
+    detail_factor: int = 1,
+) -> ShapeFitReport:
+    """Try to replace each ring with the primitive it matches, in place.
+
+    Runs after straightening and kerf compensation, before arc fitting: the
+    primitives then describe the geometry the machine will actually cut, and
+    the arcs fitted afterwards describe the snapped shape rather than
+    re-deriving the pixel staircase. Rings that accepted a whole circle are
+    stored in :attr:`Path.circles`, which every exporter already writes as a
+    true CIRCLE entity; ellipses and rectangles replace the ring points with
+    points on the primitive itself.
+
+    The tolerance derives the way arc fitting derives its own: an explicit
+    ``shape_fit_tol_mm`` wins, otherwise the looser of the simplification
+    tolerance and one *source* pixel. A traced outline departs from any ideal
+    shape by about half a pixel no matter how clean the artwork was, so a
+    tighter tolerance rejects every real primitive.
+    """
+    report = ShapeFitReport()
+    if not params.shape_fit or not paths:
+        return report
+
+    tol = _batch_tolerance(params, px_per_mm, detail_factor)
+
+    for path_index, path in enumerate(paths):
+        # ``rings()`` yields outer then holes; the index keys circles/bulges.
+        for ring_index, ring in enumerate(path.rings()):
+            if ring_index in path.circles or ring_index in path.bulges:
+                continue
+
+            fit = fit_primitive(
+                ring,
+                tol_mm=tol,
+                try_circle=params.shape_fit_circle,
+                try_ellipse=params.shape_fit_ellipse,
+                try_rect=params.shape_fit_rect,
+                min_vertices=params.shape_fit_min_vertices,
+            )
+            if (
+                fit.kind == PrimitiveKind.NONE
+                and params.shape_fit_rect
+                and 4 <= len(ring) < params.shape_fit_min_vertices
+            ):
+                # Rings below the vertex floor are too few for a confident
+                # circle or ellipse judgement (five points always fit an
+                # ellipse exactly — that is what the floor protects against).
+                # A rectangle is different: its corner-reach and area tests
+                # stay exact at four points, so a simplified quadrilateral
+                # that IS a rotated rectangle should still snap to one.
+                fit = fit_primitive(
+                    ring,
+                    tol_mm=tol,
+                    try_circle=False,
+                    try_ellipse=False,
+                    try_rect=True,
+                    min_vertices=4,
+                )
+            if fit.kind == PrimitiveKind.NONE:
+                continue
+
+            if fit.kind == PrimitiveKind.CIRCLE and fit.circle is not None:
+                path.circles[ring_index] = fit.circle
+            elif fit.kind == PrimitiveKind.ELLIPSE and fit.ellipse_params is not None:
+                _replace_ring(path, ring_index, _sample_ellipse(fit.ellipse_params, len(ring)))
+            elif fit.kind == PrimitiveKind.RECT and fit.rect_pts is not None:
+                _replace_ring(path, ring_index, np.asarray(fit.rect_pts, dtype=float))
+            else:  # pragma: no cover - fit populated nothing; treat as no match
+                continue
+
+            report.fits.append(ShapeFit(path_index, ring_index, fit.kind))
+
+    return report
+
+
+def _batch_tolerance(params: "TraceParams", px_per_mm: float, detail_factor: int) -> float:
+    """Acceptance distance for the batch pass, mirroring arc fitting."""
+    if params.shape_fit_tol_mm > 0:
+        return params.shape_fit_tol_mm
+    source_pixel_mm = detail_factor / px_per_mm if px_per_mm > 0 else 0.0
+    return max(params.simplify_mm, source_pixel_mm, 0.02)
+
+
+def _replace_ring(path: "Path", ring_index: int, points: np.ndarray) -> None:
+    """Swap the ring's points, keeping every other ring in place."""
+    if ring_index == 0:
+        path.outer = points
+    else:
+        path.holes[ring_index - 1] = points
+    # Any arc data described the old points; the fitter will re-derive it.
+    path.bulges.pop(ring_index, None)
+
+
+def _sample_ellipse(
+    params: tuple[float, float, float, float, float], original_count: int
+) -> np.ndarray:
+    """Points on the fitted ellipse, evenly spaced in its parameter angle.
+
+    Uses the same axis convention as :func:`fit_primitive`: ``semi_major``
+    lies along the rotated Y axis, ``semi_minor`` along the rotated X axis, so
+    the sampled points satisfy the very equation the deviation test passed.
+    """
+    cx, cy, semi_major, semi_minor, angle_deg = params
+    count = max(original_count, _MIN_ELLIPSE_SAMPLES)
+    t = np.linspace(0.0, 2.0 * math.pi, count, endpoint=False)
+    local = np.column_stack([semi_minor * np.cos(t), semi_major * np.sin(t)])
+    angle = math.radians(angle_deg)
+    rotate = np.array(
+        [[math.cos(angle), -math.sin(angle)], [math.sin(angle), math.cos(angle)]]
+    )
+    return local @ rotate.T + np.array([cx, cy])
+
+
 __all__ = [
     "PrimitiveFit",
     "PrimitiveKind",
+    "ShapeFit",
+    "ShapeFitReport",
     "fit_primitive",
+    "fit_shapes",
 ]

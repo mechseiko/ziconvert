@@ -144,12 +144,14 @@ def test_straight_polygon_gains_no_bulges():
 
 
 def test_arcs_cut_vertex_count_without_distorting(ring_image):
-    plain = run(ring_image, TraceParams(width_mm=100.0, fit_arcs=False))
-    fitted = run(ring_image, TraceParams(width_mm=100.0, fit_arcs=True))
+    # shape_fit off: this test measures what arc fitting does on its own —
+    # with it on, these rings snap to CIRCLE entities before arc fitting runs.
+    plain = run(ring_image, TraceParams(width_mm=100.0, fit_arcs=False, shape_fit=False))
+    fitted = run(ring_image, TraceParams(width_mm=100.0, fit_arcs=True, shape_fit=False))
     assert fitted.vertex_count < plain.vertex_count
     assert fitted.bounds.width == pytest.approx(plain.bounds.width, abs=0.5)
 
 
 def test_fit_arcs_can_be_switched_off(ring_image):
-    result = run(ring_image, TraceParams(fit_arcs=False))
+    result = run(ring_image, TraceParams(fit_arcs=False, shape_fit=False))
     assert all(not p.circles and not p.bulges for p in result.paths)

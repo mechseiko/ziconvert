@@ -7,6 +7,9 @@ Covers:
 - Irregular polygon → returns NONE
 - Too few vertices → returns NONE immediately
 - Selectivity flags (try_circle=False, etc.)
+- Sparse rectangle ring must never be mistaken for an ellipse
+- Batch pass fit_shapes: rects to 4 corners, circles to Path.circles,
+  ellipses resampled on the primitive, flags honoured, holes included
 """
 
 from __future__ import annotations
@@ -179,3 +182,183 @@ def test_noisy_circle_snaps_with_generous_tolerance():
     assert fit_loose.kind == PrimitiveKind.CIRCLE
     # The tight one may be NONE — that's the correct conservative behaviour.
     assert fit_tight.kind in (PrimitiveKind.NONE, PrimitiveKind.CIRCLE)
+
+
+# ---------------------------------------------------------------------------
+# Rectangle must never be mistaken for an ellipse (interpolation guard)
+# ---------------------------------------------------------------------------
+
+def test_sparse_rectangle_ring_is_not_snapped_to_ellipse():
+    """The fitEllipse-through-the-corners false positive.
+
+    cv2.fitEllipse interpolates: the ellipse through a rectangle's corners
+    passes every *vertex* exactly. Only the area band catches it — the
+    interpolating ellipse swells far past the ring's edges. Regression test
+    for a bug where a traced rectangle came out of the pipeline as a huge
+    resampled ellipse.
+    """
+    ring = _rect_ring(0.0, 0.0, 60.0, 45.0, pts_per_side=2)  # 8 vertices
+    fit = fit_primitive(ring, tol_mm=0.35)
+    assert fit.kind in (PrimitiveKind.RECT, PrimitiveKind.NONE)
+    assert fit.kind != PrimitiveKind.ELLIPSE
+    assert fit.kind != PrimitiveKind.CIRCLE
+
+
+# ---------------------------------------------------------------------------
+# Batch pass: fit_shapes over paths during a pipeline run
+# ---------------------------------------------------------------------------
+
+from img2dxf.geometry import Path  # noqa: E402
+from img2dxf.params import TraceParams  # noqa: E402
+from img2dxf.shape_fit import fit_shapes  # noqa: E402
+
+
+def _batch(px_per_mm: float = 100.0, detail_factor: int = 1, **kw) -> TraceParams:
+    return TraceParams(**kw)
+
+
+def test_batch_snaps_axis_aligned_rect_to_four_corners():
+    ring = _rect_ring(0.0, 0.0, 60.0, 45.0, pts_per_side=25)
+    path = Path(outer=ring)
+    report = fit_shapes([path], _batch(), px_per_mm=100.0)
+
+    assert report.rects == 1
+    assert len(path.outer) == 4
+    # The four corners sit at the rectangle's extremes.
+    assert np.allclose(np.sort(path.outer[:, 0]), [0.0, 0.0, 60.0, 60.0], atol=0.35)
+    assert np.allclose(np.sort(path.outer[:, 1]), [0.0, 0.0, 45.0, 45.0], atol=0.35)
+
+
+def test_batch_bounds_of_snapped_rect_match_the_ring():
+    """Regression: snapping must never move the geometry.
+
+    A bug once replaced a traced rectangle with a giant ellipse, growing the
+    reported bounds by a third. Whatever a ring snaps to, its extent has to
+    stay within the acceptance tolerance of the ring it came from.
+    """
+    ring = _rect_ring(10.0, 20.0, 70.0, 65.0, pts_per_side=25)
+    path = Path(outer=ring)
+    fit_shapes([path], _batch(), px_per_mm=100.0)
+
+    assert len(path.outer) == 4
+    assert path.outer[:, 0].min() == pytest.approx(10.0, abs=0.35)
+    assert path.outer[:, 0].max() == pytest.approx(70.0, abs=0.35)
+    assert path.outer[:, 1].min() == pytest.approx(20.0, abs=0.35)
+    assert path.outer[:, 1].max() == pytest.approx(65.0, abs=0.35)
+
+
+def test_batch_snaps_rotated_rect_below_vertex_floor():
+    """A simplified rotated rectangle keeps only ~5 vertices — still a RECT.
+
+    The ellipse floor (min_vertices) must not hide rotated rectangles from
+    the rect fitter, whose corner-reach and area tests stay exact at four
+    points. Exercises the rect-only retry in fit_shapes.
+    """
+    theta = math.radians(30.0)
+    w, h = 20.0, 10.0
+    corners = np.array(
+        [
+            [0.0, 0.0],
+            [w * math.cos(theta), w * math.sin(theta)],
+            [w * math.cos(theta) + h * math.sin(theta), w * math.sin(theta) - h * math.cos(theta)],
+            [h * math.sin(theta), -h * math.cos(theta)],
+        ]
+    )
+    # Four corners plus one mid-edge point, in traversal order: 5 vertices,
+    # below the default shape_fit_min_vertices of 8.
+    mid = (corners[0] + corners[1]) / 2.0
+    ring = np.vstack([corners[:1], mid[None, :], corners[1:]])
+
+    path = Path(outer=ring)
+    report = fit_shapes([path], _batch(), px_per_mm=100.0)
+
+    assert report.rects == 1
+    assert len(path.outer) == 4
+    for corner in corners:
+        assert np.linalg.norm(path.outer - corner, axis=1).min() < 0.35
+
+
+def test_batch_stores_whole_circle_in_circles_dict():
+    ring = _circle_ring(50.0, 40.0, 15.0, n=64)
+    path = Path(outer=ring)
+    report = fit_shapes([path], _batch(), px_per_mm=100.0)
+
+    assert report.circles == 1
+    assert 0 in path.circles
+    cx, cy, radius = path.circles[0]
+    assert abs(cx - 50.0) < 0.35
+    assert abs(cy - 40.0) < 0.35
+    assert abs(radius - 15.0) < 0.35
+    # A snapped circle keeps its ring points (they are simply not exported),
+    # and vertex_count reflects that the machine gets one CIRCLE entity.
+    assert len(path.outer) == 64
+    assert path.vertex_count == 0
+
+
+def test_batch_resamples_ellipse_on_the_primitive():
+    ring = _ellipse_ring(0.0, 0.0, 10.0, 6.0, n=64)
+    path = Path(outer=ring)
+    report = fit_shapes([path], _batch(), px_per_mm=100.0)
+
+    assert report.ellipses == 1
+    # The ring is replaced by a dense sampling of the fitted ellipse, ready
+    # for arc fitting downstream.
+    assert len(path.outer) >= 96
+    for point in path.outer:
+        x, y = point
+        value = (x / 10.0) ** 2 + (y / 6.0) ** 2
+        assert value == pytest.approx(1.0, abs=0.02)
+
+
+def test_batch_leaves_irregular_ring_untouched():
+    ring = _irregular_ring(n=40)
+    path = Path(outer=ring)
+    report = fit_shapes([path], _batch(), px_per_mm=100.0)
+
+    assert report.total == 0
+    assert len(path.outer) == 40
+    assert np.array_equal(path.outer, ring)
+    assert not path.circles
+
+
+def test_batch_honours_master_switch():
+    ring = _circle_ring(0.0, 0.0, 10.0, n=64)
+    path = Path(outer=ring)
+    report = fit_shapes([path], _batch(shape_fit=False), px_per_mm=100.0)
+
+    assert report.total == 0
+    assert not path.circles
+
+
+def test_batch_honours_per_primitive_flags():
+    ring = _circle_ring(0.0, 0.0, 10.0, n=64)
+    params = _batch(shape_fit_circle=False, shape_fit_ellipse=False)
+    path = Path(outer=ring)
+    report = fit_shapes([path], params, px_per_mm=100.0)
+
+    # No circle and no ellipse allowed; a bounding-box rectangle is not
+    # reached by the ring, so nothing may snap at all.
+    assert report.total == 0
+    assert not path.circles
+    assert len(path.outer) == 64
+
+
+def test_batch_skips_rings_that_already_have_arc_data():
+    ring = _circle_ring(0.0, 0.0, 10.0, n=64)
+    path = Path(outer=ring, bulges={0: np.zeros(64)})
+    report = fit_shapes([path], _batch(), px_per_mm=100.0)
+
+    assert report.total == 0
+    assert 0 not in path.circles
+
+
+def test_batch_processes_holes_too():
+    outer = _circle_ring(0.0, 0.0, 20.0, n=64)
+    hole = _rect_ring(-5.0, -5.0, 5.0, 5.0, pts_per_side=20)
+    path = Path(outer=outer, holes=[hole])
+    report = fit_shapes([path], _batch(), px_per_mm=100.0)
+
+    assert report.circles == 1
+    assert report.rects == 1
+    assert 0 in path.circles
+    assert len(path.holes[0]) == 4
