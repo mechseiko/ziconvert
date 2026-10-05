@@ -8,7 +8,7 @@ from pathlib import Path as FsPath
 import numpy as np
 
 from .arcfit import fit_bulges, fit_circle
-from .detail import resolve_detail, supersample
+from .detail import resolve_detail
 from .geometry import Bounds, Path, bounds_of, pixels_per_mm, to_millimetres
 from .kerf import offset_paths
 from .order import order_paths, travel_length
@@ -19,6 +19,7 @@ from .straighten import straighten_paths
 from .tile import tile_paths
 from .trace import trace_mask
 from .transform import apply_transform
+from .upscale import upscale
 
 
 @dataclass(slots=True)
@@ -69,6 +70,14 @@ class TraceResult:
     detail_factor: int = 1
     """The supersampling factor this run used."""
 
+    sr_used: str = "off"
+    """The super-resolution backend that actually produced the pixels.
+
+    ``"off"`` covers both "no upscaling" and "classical cubic resize"; any
+    other value means a neural model genuinely ran. A summary line that says
+    ``sr=dnn`` therefore only ever means dnn ran.
+    """
+
     shapes_snapped: int = 0
     """Rings replaced by an ideal circle, ellipse or rectangle."""
 
@@ -98,6 +107,8 @@ class TraceResult:
             text += f" | {self.arc_count} arcs"
         if self.shapes_snapped:
             text += f" | {self.shapes_snapped} snapped"
+        if self.sr_used != "off":
+            text += f" | sr={self.sr_used}"
         if self.travel_mm:
             text += f" | {self.travel_mm / 1000:.2f} m travel"
         if self.discarded:
@@ -119,8 +130,10 @@ def run(image_rgb: np.ndarray, params: TraceParams) -> TraceResult:
     # Supersample before anything reads the pixels. Because px_per_mm is then
     # derived from the enlarged image, every millimetre-based tolerance keeps
     # its exact physical meaning and no downstream stage needs adjusting.
+    # The backend is whatever the parameters asked for, or whatever it fell
+    # back to — reported truthfully so "sr=dnn" always means dnn ran.
     factor = resolve_detail(image_rgb.shape[1], image_rgb.shape[0], params.detail)
-    image_rgb = supersample(image_rgb, factor)
+    image_rgb, sr_used = upscale(image_rgb, factor, params)
 
     height_px, width_px = image_rgb.shape[:2]
     px_per_mm = pixels_per_mm(
@@ -195,6 +208,7 @@ def run(image_rgb: np.ndarray, params: TraceParams) -> TraceResult:
         px_per_mm=px_per_mm,
         image_size_px=(width_px, height_px),
         detail_factor=factor,
+        sr_used=sr_used,
         shapes_snapped=shapes_snapped,
         travel_mm=travel_length(paths),
         bounds=bounds,
