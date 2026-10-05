@@ -23,7 +23,7 @@ import cv2
 import numpy as np
 import pytest
 
-BACKEND_DIR = Path(__file__).resolve().parent
+BACKEND_DIR = Path(__file__).resolve().parent.parent      # web/backend/
 sys.path.insert(0, str(BACKEND_DIR))
 sys.path.insert(0, str(BACKEND_DIR.parents[1] / "core"))
 

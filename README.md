@@ -10,7 +10,7 @@ that LightBurn, RDWorks and LaserCAD import at true millimetre scale.
 ![Platform](https://img.shields.io/badge/platform-Windows-0078D6)
 ![Output](https://img.shields.io/badge/output-DXF%20%7C%20SVG-2ea44f)
 ![Python](https://img.shields.io/badge/python-3.10%2B-3776AB)
-![Version](https://img.shields.io/badge/version-0.1.0-informational)
+![Version](https://img.shields.io/badge/version-0.2.0-informational)
 
 [**⬇ Download for Windows**](https://github.com/aryansaraogi/dxfconvertor/releases/latest) ·
 [Quick start](#quick-start) ·
@@ -417,6 +417,9 @@ curl -X POST http://localhost:8000/convert \
   -F "morphology=true" \
   -F "shape_fit=true" \
   -F "vector_snap=true" \
+  -F "straighten=true" \
+  -F "sr_backend=off" \
+  -F "snap_circle_mm=0.2" \
   -F "dxf_version=R2010" \
   --output output.dxf
 ```
@@ -432,17 +435,22 @@ ziconvert/
 ├── core/                   ← shared Python engine (zero UI deps)
 │   ├── img2dxf/
 │   │   ├── pipeline.py     ← main run() entry point
-│   │   ├── preprocess.py   ← bilateral filter, morphology, auto-levels
+│   │   ├── preprocess.py   ← bilateral/NLM denoise, morphology, auto-levels
+│   │   ├── upscale.py      ← optional super-resolution before tracing
 │   │   ├── shape_fit.py    ← contour-to-primitive snapping public API
 │   │   ├── trace.py        ← contour extraction and smoothing
 │   │   ├── arcfit.py       ← arc and circle recovery
-│   │   ├── straighten.py   ← vector snap (H/V lines, right angles)
+│   │   ├── straighten.py   ← flattens structurally straight runs
+│   │   ├── vector_snap.py  ← post-trace snap (axes, right angles, merge,
+│   │   │                      near-circle claims)
 │   │   ├── export_dxf.py   ← DXF writer
 │   │   ├── export_svg.py   ← SVG writer
 │   │   └── params.py       ← TraceParams dataclass + PRESETS
 │   └── tests/
 │       ├── test_preprocess.py  ← bilateral, morphology, binarize
 │       ├── test_shape_fit.py   ← circle/ellipse/rect snapping
+│       ├── test_upscale.py     ← super-resolution backends + fallback
+│       ├── test_vector_snap.py ← the four snap stages
 │       └── ...
 │
 ├── desktop/                ← Tkinter desktop app → .exe
@@ -450,15 +458,19 @@ ziconvert/
 │   └── img2dxf_gui/
 │
 ├── web/                    ← localhost web UI
-│   ├── backend/main.py     ← FastAPI wrapper around core/
+│   ├── backend/
+│   │   ├── main.py         ← FastAPI wrapper around core/
+│   │   └── tests/          ← API contract tests
 │   ├── frontend/src/       ← Vite + React + TanStack Query
 │   ├── run.bat             ← one-command Windows launcher
 │   └── run.sh              ← one-command Linux/macOS launcher
 │
 ├── docs/
+│   ├── enhancements.md     ← the five tracing enhancements in depth
+│   └── architecture.md     ← module map, layering rules, pipeline graph
 ├── pyproject.toml
 └── requirements.txt
 ```
 
 Dependencies flow **one way only**: `desktop/` → `core/`, `web/backend/` → `core/`.
-The engine never imports from either UI.
+The engine never imports from either UI.  Deeper dives: [docs/enhancements.md](docs/enhancements.md) (what each enhancement does and why it is ordered that way) and [docs/architecture.md](docs/architecture.md) (how the layers fit together and the add-a-knob checklist).

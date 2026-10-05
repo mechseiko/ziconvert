@@ -1,6 +1,6 @@
 {
   "name": "ziconvert-web",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "Web frontend for the ziconvert image-to-DXF converter",
   "scripts": {

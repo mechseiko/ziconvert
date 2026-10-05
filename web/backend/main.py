@@ -50,7 +50,7 @@ app = FastAPI(
         "HTTP wrapper around the ziconvert core tracing engine. "
         "Upload an image, receive a DXF."
     ),
-    version="0.1.0",
+    version="0.2.0",
 )
 
 app.add_middleware(
@@ -77,7 +77,7 @@ app.add_middleware(
 @app.get("/health")
 async def health():
     """Liveness check — returns 200 when the service is up."""
-    return {"status": "ok", "engine_version": "0.1.0"}
+    return {"status": "ok", "engine_version": "0.2.0"}
 
 
 @app.get("/presets")
@@ -252,7 +252,7 @@ async def root():
     """API root — describes available endpoints."""
     return {
         "service": "ziconvert Web API",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "endpoints": {
             "GET  /health": "Liveness check",
             "GET  /presets": "List available presets",
