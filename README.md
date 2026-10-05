@@ -1,6 +1,6 @@
 <div align="center">
 
-# img2dxf
+# ziconvert
 
 **Turn any PNG or JPEG into a laser-ready DXF — in seconds, at the exact size you need.**
 
@@ -20,17 +20,17 @@ that LightBurn, RDWorks and LaserCAD import at true millimetre scale.
 
 <br>
 
-<img src="docs/screenshot.png" alt="img2dxf tracing a badge logo: the settings panel on the left, and the traced cut paths drawn over the artwork on the right" width="900">
+<img src="docs/screenshot.png" alt="ziconvert tracing a badge logo: the settings panel on the left, and the traced cut paths drawn over the artwork on the right" width="900">
 
 </div>
 
 ---
 
-## Why img2dxf?
+## Why ziconvert?
 
 Most image-to-vector tools are built for print. A laser cutter needs something different:
 closed outlines, holes that stay holes, real millimetres, and paths that account for the
-width of the beam. img2dxf is built for exactly that.
+width of the beam. ziconvert is built for exactly that.
 
 - **Accurate to size** — tell it "80 mm wide" and the part comes off the machine 80 mm wide.
 - **Clean edges** — letter stems come out straight, curves come out as true arcs, corners
@@ -42,7 +42,7 @@ width of the beam. img2dxf is built for exactly that.
 ## Download
 
 1. Go to the [**latest release**](https://github.com/aryansaraogi/dxfconvertor/releases/latest).
-2. Download **`img2dxf.exe`**.
+2. Download **`ziconvert.exe`**.
 3. Double-click it. That's it.
 
 > **Windows SmartScreen** may warn about an unrecognised app the first time. Click
@@ -109,7 +109,7 @@ trust it with material. Generate the calibration piece (from a
 [source install](#run-from-source)):
 
 ```powershell
-python -m img2dxf.calibrate -o calibration.dxf
+python -m ziconvert.calibrate -o calibration.dxf
 ```
 
 It writes an 80 x 50 mm plate with a large hole, a small hole, a slot and a square
@@ -269,31 +269,31 @@ The GUI picks the format from the file extension you save with.
 ## Command line
 
 The same engine, for scripts and batch jobs. The command line needs a
-[source install](#run-from-source) (`pip install .` adds the `img2dxf` command); the
+[source install](#run-from-source) (`pip install .` adds the `ziconvert` command); the
 standalone `.exe` is the desktop app only. `--help` lists every flag, and any flag
 overrides the preset or settings file it's combined with.
 
 ```powershell
-img2dxf logo.png -o logo.dxf --width-mm 80
-img2dxf photo.jpg --preset Photo --width-mm 120
-img2dxf part.png --width-mm 60 --kerf 0.15
-img2dxf scan.png --rotate -2.5 --crop 0.1,0.1,0.9,0.6
-img2dxf part.png --width-mm 60 --tabs 4 --tab-mm 0.5
-img2dxf part.png --copies 3x2 --bed 400x300
-img2dxf logo.png -o logo.svg --width-mm 80
-img2dxf tiny.png --width-mm 40 --detail 4
-img2dxf art.png --width-mm 80 --no-straighten
+ziconvert logo.png -o logo.dxf --width-mm 80
+ziconvert photo.jpg --preset Photo --width-mm 120
+ziconvert part.png --width-mm 60 --kerf 0.15
+ziconvert scan.png --rotate -2.5 --crop 0.1,0.1,0.9,0.6
+ziconvert part.png --width-mm 60 --tabs 4 --tab-mm 0.5
+ziconvert part.png --copies 3x2 --bed 400x300
+ziconvert logo.png -o logo.svg --width-mm 80
+ziconvert tiny.png --width-mm 40 --detail 4
+ziconvert art.png --width-mm 80 --no-straighten
 ```
 
 Save and reuse settings:
 
 ```powershell
-img2dxf logo.png -o logo.dxf --width-mm 80 --save-settings
-img2dxf logo.png -o logo.dxf --settings logo.png.img2dxf.json
-img2dxf --list-presets
+ziconvert logo.png -o logo.dxf --width-mm 80 --save-settings
+ziconvert logo.png -o logo.dxf --settings logo.png.ziconvert.json
+ziconvert --list-presets
 ```
 
-From a source checkout, use `python -m img2dxf.cli` in place of `img2dxf`.
+From a source checkout, use `python -m ziconvert.cli` in place of `ziconvert`.
 
 ---
 
@@ -323,10 +323,10 @@ git clone https://github.com/aryansaraogi/dxfconvertor.git
 cd dxfconvertor
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe -m pip install .        # optional: adds the img2dxf command
+.\.venv\Scripts\python.exe -m pip install .        # optional: adds the ziconvert command
 
-.\.venv\Scripts\python.exe -m img2dxf          # launch the app
-.\.venv\Scripts\python.exe -m img2dxf.cli --help
+.\.venv\Scripts\python.exe -m ziconvert          # launch the app
+.\.venv\Scripts\python.exe -m ziconvert.cli --help
 ```
 
 On macOS/Linux use `.venv/bin/python`. Tkinter must be available in your Python.
@@ -335,14 +335,14 @@ On macOS/Linux use `.venv/bin/python`. Tkinter must be available in your Python.
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install pyinstaller
-.\.venv\Scripts\python.exe packaging\build.py     # produces dist\img2dxf.exe
+.\.venv\Scripts\python.exe packaging\build.py     # produces dist\ziconvert.exe
 ```
 
 ## Publish a release
 
 One command checks the repo, runs the tests, bumps the version everywhere it appears
-(`pyproject.toml`, `img2dxf/__init__.py`, the README badge), builds the exe, then commits,
-tags, pushes and creates the GitHub release with `img2dxf.exe` attached:
+(`pyproject.toml`, `ziconvert/__init__.py`, the README badge), builds the exe, then commits,
+tags, pushes and creates the GitHub release with `ziconvert.exe` attached:
 
 ```powershell
 .\.venv\Scripts\python.exe packaging\release.py 0.2.0 --dry-run   # checks and tests only
@@ -371,7 +371,7 @@ engine without downloading the `.exe` first.
 ```
 browser (Vite, :5173)
     └── /api/* proxy ──► FastAPI backend (:8000)
-                              └── imports core/img2dxf (shared engine)
+                              └── imports core/ziconvert (shared engine)
 ```
 
 The Python engine is never rewritten in JavaScript. The web UI is a thin HTTP
@@ -433,7 +433,7 @@ See [`web/README.md`](web/README.md) for the full API reference.
 ```
 ziconvert/
 ├── core/                   ← shared Python engine (zero UI deps)
-│   ├── img2dxf/
+│   ├── ziconvert/
 │   │   ├── pipeline.py     ← main run() entry point
 │   │   ├── preprocess.py   ← bilateral/NLM denoise, morphology, auto-levels
 │   │   ├── upscale.py      ← optional super-resolution before tracing
@@ -455,7 +455,7 @@ ziconvert/
 │
 ├── desktop/                ← Tkinter desktop app → .exe
 │   ├── app.py
-│   └── img2dxf_gui/
+│   └── ziconvert_gui/
 │
 ├── web/                    ← localhost web UI
 │   ├── backend/
