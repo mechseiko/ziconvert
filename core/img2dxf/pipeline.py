@@ -20,6 +20,7 @@ from .tile import tile_paths
 from .trace import trace_mask
 from .transform import apply_transform
 from .upscale import upscale
+from .vector_snap import snap_vectors
 
 
 @dataclass(slots=True)
@@ -81,6 +82,10 @@ class TraceResult:
     shapes_snapped: int = 0
     """Rings replaced by an ideal circle, ellipse or rectangle."""
 
+    vectors_snapped: int = 0
+    """Regularisations from the vector-snap pass: axes made exact, corners
+    squared, coordinates merged, near-circles claimed."""
+
     travel_mm: float = 0.0
     """Distance the head moves between paths, in the order they are written."""
 
@@ -107,6 +112,8 @@ class TraceResult:
             text += f" | {self.arc_count} arcs"
         if self.shapes_snapped:
             text += f" | {self.shapes_snapped} snapped"
+        if self.vectors_snapped:
+            text += f" | {self.vectors_snapped} vector-snapped"
         if self.sr_used != "off":
             text += f" | sr={self.sr_used}"
         if self.travel_mm:
@@ -173,6 +180,16 @@ def run(image_rgb: np.ndarray, params: TraceParams) -> TraceResult:
             paths, params.straighten_mm, params.min_run_mm, px_per_mm, factor
         )
 
+    # Vector snap before kerf: it regularises the traced geometry itself, and
+    # a parallel offset preserves straightness and squareness, so compensating
+    # afterwards costs nothing. Kerf also rebuilds every path from raw rings,
+    # which would sweep away any circle this pass claimed — by the time
+    # shape_fit runs post-kerf, only what survives the offset is left to
+    # judge, which is exactly the geometry the machine will follow.
+    vectors_snapped = 0
+    if params.snap_enabled:
+        vectors_snapped = snap_vectors(paths, params).total
+
     # Kerf before arcs: the arcs should describe the path the machine will
     # actually follow, not the one before compensation moved it.
     paths = offset_paths(paths, params.kerf_mm, params.kerf_side)
@@ -210,6 +227,7 @@ def run(image_rgb: np.ndarray, params: TraceParams) -> TraceResult:
         detail_factor=factor,
         sr_used=sr_used,
         shapes_snapped=shapes_snapped,
+        vectors_snapped=vectors_snapped,
         travel_mm=travel_length(paths),
         bounds=bounds,
         fits_bed=_fits(bounds, bed),

@@ -393,6 +393,7 @@ class TraceParams:
             self.snap_axis_deg > 0
             or self.snap_merge_mm > 0
             or self.snap_right_angle_deg > 0
+            or self.snap_circle_mm > 0
         )
 
     @property
