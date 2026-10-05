@@ -37,7 +37,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 
-from img2dxf import PRESETS, TraceParams, run
+from img2dxf import DXF_VERSIONS, PRESETS, SR_BACKENDS, TraceParams, run
 from img2dxf.preprocess import decode_image
 from img2dxf.export_dxf import build_document
 
@@ -65,6 +65,7 @@ app.add_middleware(
         "X-Arc-Count",
         "X-Width-Mm",
         "X-Height-Mm",
+        "X-Sr-Used",
         "X-Summary",
     ],
 )
@@ -94,6 +95,13 @@ async def convert(
     morphology: bool = Form(True, description="Run morphological close+open on the mask"),
     shape_fit: bool = Form(True, description="Snap near-primitive contours to ideal shapes"),
     vector_snap: bool = Form(True, description="Snap near-H/V lines and right angles"),
+    straighten: bool = Form(True, description="Flatten structurally straight runs"),
+    sr_backend: str = Form("off", description="Super-resolution before tracing"),
+    sr_model: str | None = Form(None, description="Model file for the sr backend"),
+    snap_axis_deg: float | None = Form(None, description="Override: axis-snap tolerance, degrees"),
+    snap_merge_mm: float | None = Form(None, description="Override: coordinate merge tolerance, mm"),
+    snap_right_angle_deg: float | None = Form(None, description="Override: right-angle tolerance, degrees"),
+    snap_circle_mm: float | None = Form(None, description="Override: circle-claim tolerance, mm"),
     dxf_version: str = Form("R2010", description="DXF format version (R2010, R2000, R12)"),
 ):
     """Convert an uploaded image to a DXF file.
@@ -106,6 +114,16 @@ async def convert(
         raise HTTPException(
             status_code=422,
             detail=f"Expected an image file, got '{file.content_type}'.",
+        )
+    if sr_backend not in SR_BACKENDS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unknown sr_backend '{sr_backend}'. Choose from: {', '.join(SR_BACKENDS)}.",
+        )
+    if dxf_version not in DXF_VERSIONS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unknown dxf_version '{dxf_version}'. Choose from: {', '.join(DXF_VERSIONS)}.",
         )
     # Normalize preset name to match PRESETS keys
     resolved_preset = None
@@ -159,13 +177,27 @@ async def convert(
     params = params.with_denoise(denoise)
     params = params.with_morphology(morphology)
 
-    params = replace(
-        params,
-        width_mm=width_mm,
-        shape_fit=shape_fit,
-        vector_snap=vector_snap,
-        dxf_version=dxf_version,
-    )
+    overrides: dict = {
+        "width_mm": width_mm,
+        "shape_fit": shape_fit,
+        "vector_snap": vector_snap,
+        "dxf_version": dxf_version,
+        "sr_backend": sr_backend,
+    }
+    if sr_model is not None:
+        overrides["sr_model"] = sr_model
+    if not straighten:
+        overrides["straighten_mm"] = 0.0
+    # Tolerance overrides: an omitted field keeps the preset's value.
+    for field, value in (
+        ("snap_axis_deg", snap_axis_deg),
+        ("snap_merge_mm", snap_merge_mm),
+        ("snap_right_angle_deg", snap_right_angle_deg),
+        ("snap_circle_mm", snap_circle_mm),
+    ):
+        if value is not None:
+            overrides[field] = value
+    params = replace(params, **overrides)
 
     # ── Run the engine ───────────────────────────────────────────────────
     try:
@@ -209,6 +241,7 @@ async def convert(
             "X-Arc-Count": str(result.arc_count),
             "X-Width-Mm": f"{result.bounds.width:.2f}",
             "X-Height-Mm": f"{result.bounds.height:.2f}",
+            "X-Sr-Used": result.sr_used,
             "X-Summary": result.summary(),
         },
     )

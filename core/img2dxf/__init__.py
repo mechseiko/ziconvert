@@ -2,7 +2,7 @@
 
 from .export_dxf import write_dxf
 from .geometry import Bounds, Path
-from .params import DXF_VERSIONS, PRESETS, TraceParams
+from .params import DXF_VERSIONS, PRESETS, SR_BACKENDS, TraceParams
 from .pipeline import TraceResult, run, run_file
 from .shape_fit import (
     PrimitiveFit,
@@ -21,6 +21,7 @@ __all__ = [
     "Path",
     "PrimitiveFit",
     "PrimitiveKind",
+    "SR_BACKENDS",
     "ShapeFitReport",
     "TraceParams",
     "TraceResult",
