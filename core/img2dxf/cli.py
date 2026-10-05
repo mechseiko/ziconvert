@@ -106,6 +106,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--snap-right-angle-deg", type=float, dest="snap_right_angle_deg",
         help="corners this close to 90 degrees become exactly 90",
     )
+    quality.add_argument(
+        "--snap-circle", type=float, dest="snap_circle_mm",
+        help="claim rings within this of a circle as CIRCLEs, mm; 0 disables",
+    )
 
     tone = parser.add_argument_group("image adjustments")
     tone.add_argument(
@@ -259,6 +263,7 @@ def params_from_args(args: argparse.Namespace) -> TraceParams:
         "nlm_h", "morph_kernel", "morph_iterations",
         "sr_backend", "sr_model", "shape_fit_tol_mm",
         "snap_axis_deg", "snap_merge_mm", "snap_right_angle_deg",
+        "snap_circle_mm",
     )
     overrides = {
         name: getattr(args, name)
