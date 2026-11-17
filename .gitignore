@@ -1,53 +1,27 @@
 # --- Python ---
 .venv/
 venv/
-env/
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .ruff_cache/
-.mypy_cache/
 .coverage
-.coverage.*
 coverage.xml
 htmlcov/
 *.egg-info/
-.eggs/
-pip-wheel-metadata/
-
-# --- Build outputs (PyInstaller, setuptools, Vite) ---
-build/
-dist/
-*.manifest
-*.spec.bak
 
 # --- Node / frontend ---
 node_modules/
-.npm/
-.pnpm-store/
-web/frontend/dist/
-web/frontend/.vite/
+dist/
 *.tsbuildinfo
 .eslintcache
 
-# --- Editors and OS noise ---
-.idea/
-.vscode/*
-!.vscode/extensions.json
-*.swp
-.DS_Store
-Thumbs.db
-desktop.ini
+# --- Build outputs ---
+build/
 
-# --- Local scratch: sample inputs and exported jobs ---
-# Conversion output is regenerated from an image in seconds, so it is never
-# worth a merge conflict. Kept out of the repo on purpose.
+# --- Generated conversion output / scratch ---
 *.dxf
 *.svgz
-sample.png
-grad.png
-check_*.png
-ui*.png
 scratch/
 tmp/
 *.log
@@ -60,18 +34,17 @@ tmp/
 *.key
 
 # --- Downloaded super-resolution models ---
-# Fetched on demand by the `dnn` upscale backend, tens of megabytes each.
 models/
 *.pb
 *.onnx
 
+# --- Agent / skill files ---
 CLAUDE.md
 AGENTS.md
+SKILL.md
+
+# --- Vercel ---
+.vercel
 
 # --- Web backend runtime artefacts ---
 web/backend/.deps_ok
-web/backend/__pycache__/
-web/backend/*.pyc
-
-SKILL.md
-.vercel
