@@ -1,10 +1,10 @@
 import { useState, useCallback } from 'react'
+import { Github, Image as ImageIcon } from 'lucide-react'
 import FileUpload from '@/components/FileUpload'
 import ResultPreview from '@/components/ResultPreview'
 import SettingsPanel from '@/components/SettingsPanel'
 import { useConvertImage } from '@/api/convert'
 import type { ConvertSettings } from '@/api/convert'
-import { Cpu, Github, Zap } from 'lucide-react'
 
 const DEFAULT_SETTINGS: ConvertSettings = {
   width_mm: 100,
@@ -16,6 +16,34 @@ const DEFAULT_SETTINGS: ConvertSettings = {
   straighten: true,
   sr_backend: 'off',
   dxf_version: 'R2010',
+}
+
+function LogoMark() {
+  return (
+    <span className="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 32 32" fill="none">
+        <path d="M7 24V8h18" stroke="currentColor" strokeWidth="2" />
+        <path d="M7 24h11" stroke="currentColor" strokeWidth="2" />
+        <path d="M18 8h7v7" stroke="#ff4d00" strokeWidth="2" />
+      </svg>
+    </span>
+  )
+}
+
+function HeroArt() {
+  return (
+    <div className="hero-art" aria-hidden="true">
+      <svg viewBox="0 0 520 330">
+        <path className="art-grid" d="M0 42H520M0 84H520M0 126H520M0 168H520M0 210H520M0 252H520M0 294H520" />
+        <path className="art-grid" d="M52 0V330M104 0V330M156 0V330M208 0V330M260 0V330M312 0V330M364 0V330M416 0V330M468 0V330" />
+        <path className="art-shape draw-path draw-path-1" pathLength="1" d="M58 226V98h126v128H58Z" />
+        <path className="art-detail draw-path draw-path-2" pathLength="1" d="M232 214a52 52 0 1 0 104 0 52 52 0 1 0-104 0Z" />
+        <path className="art-detail draw-path draw-path-3" pathLength="1" d="M232 138h82M232 168h56" />
+        <path className="art-cut draw-path draw-path-4" pathLength="1" d="M78 194h154M286 142v72" />
+        <path className="art-cut draw-path draw-path-2" pathLength="1" d="M322 286h96" />
+      </svg>
+    </div>
+  )
 }
 
 export default function App() {
@@ -33,155 +61,117 @@ export default function App() {
     [reset],
   )
 
+  const handleClearFile = useCallback(() => {
+    setFile(null)
+    reset()
+  }, [reset])
+
   const handleConvert = () => {
     if (!file) return
     mutate({ file, settings })
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* ── Header ────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-50 border-b border-white/5 backdrop-blur-xl bg-surface-950/60">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center shadow-lg shadow-brand-600/30">
-              <Cpu size={16} className="text-white" />
-            </div>
-            <div>
-              <span className="font-bold text-white tracking-tight">ziconvert</span>
-              <span className="ml-2 text-xs text-brand-400 font-mono bg-brand-950 border border-brand-800 px-1.5 py-0.5 rounded">
-                v0.1
-              </span>
-            </div>
+    <div className="shell">
+      <header className="topbar">
+        <div className="topbar-inner">
+          <a className="brand" href="/" aria-label="ziconvert home">
+            <LogoMark />
+            <span className="brand-name">ziconvert</span>
+            <span className="brand-version">v0.2.0</span>
+          </a>
+
+          <div className="top-meta">
+            <span>PNG / JPEG / WebP / BMP</span>
+            <span className="sep" />
+            <span>DXF output</span>
           </div>
 
-          <div className="flex items-center gap-4">
-            <span className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400">
-              <Zap size={12} className="text-brand-400" />
-              Image → DXF converter
-            </span>
+          <a
+            href="https://github.com/mechseiko/ziconvert"
+            target="_blank"
+            rel="noreferrer"
+            className="button button-quiet"
+            aria-label="View source on GitHub"
+          >
+            <Github size={15} />
+            <span>Source</span>
+          </a>
+        </div>
+      </header>
+
+      <main>
+        <section className="page-width hero">
+          <div className="hero-copy">
+            <div className="eyebrow">Raster to vector · DXF for laser and CAD</div>
+            <h1>Turn images into laser-ready DXF.</h1>
+            <p className="lede">
+              Drop a raster image, set the finished width, and export clean contours
+              for LightBurn, RDWorks, LaserCAD and CAD workflows.
+            </p>
+            <div className="fact-row">
+              <span className="fact">True millimetre scale</span>
+              <span className="fact">DXF R2010 / R2000 / R12</span>
+              <span className="fact">Arcs and circles preserved</span>
+              <span className="fact">No account required</span>
+            </div>
+            <HeroArt />
+          </div>
+
+          <aside className="panel source-panel" aria-label="Source image">
+            <div className="panel-head">
+              <div className="panel-title">
+                <ImageIcon size={16} />
+                Source image
+              </div>
+              <span className="panel-meta">step 1</span>
+            </div>
+            <FileUpload
+              file={file}
+              onFileSelect={handleFileSelect}
+              onClear={handleClearFile}
+              disabled={isPending}
+            />
+          </aside>
+        </section>
+
+        <section className="page-width bench" aria-label="Conversion bench">
+          <SettingsPanel
+            settings={settings}
+            onChange={setSettings}
+            onConvert={handleConvert}
+            canConvert={Boolean(file)}
+            isPending={isPending}
+            disabled={isPending}
+          />
+
+          <ResultPreview
+            isLoading={isPending}
+            isSuccess={isSuccess}
+            isError={isError}
+            error={error}
+            blobUrl={data?.blobUrl ?? null}
+            filename={data?.filename ?? null}
+            summary={data?.summary ?? null}
+            meta={data?.meta ?? null}
+          />
+        </section>
+      </main>
+
+      <footer className="footer">
+        <div className="footer-inner">
+          <span>ziconvert — image to DXF</span>
+          <span>
             <a
               href="https://github.com/mechseiko/ziconvert"
               target="_blank"
               rel="noreferrer"
-              className="btn-secondary !px-3 !py-2"
-              aria-label="View source on GitHub"
             >
-              <Github size={15} />
-              <span className="hidden sm:inline">Source</span>
-            </a>
-          </div>
+              mechseiko/ziconvert
+            </a>{' '}
+            · MIT
+          </span>
         </div>
-      </header>
-
-      {/* ── Hero ──────────────────────────────────────────────────────── */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-12 pb-8 text-center">
-        <div className="inline-flex items-center gap-2 badge badge-loading mb-5">
-          <span className="w-1.5 h-1.5 rounded-full bg-brand-400 animate-pulse-slow" />
-          Running locally — no upload to cloud
-        </div>
-        <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight mb-4">
-          <span className="gradient-text text-glow">Image to DXF</span>
-          <br className="hidden sm:block" />
-          <span className="text-white"> Converter</span>
-        </h1>
-        <p className="text-slate-400 text-lg max-w-xl mx-auto leading-relaxed">
-          Upload a PNG or JPEG image and convert it to a DXF file suitable for
-          CAD and laser cutting applications. Processing is done locally on your machine.
-        </p>
-      </section>
-
-      {/* ── Main content ──────────────────────────────────────────────── */}
-      <main className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 pb-16">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
-          {/* Left column */}
-          <div className="flex flex-col gap-6">
-            <FileUpload
-              file={file}
-              onFileSelect={handleFileSelect}
-              disabled={isPending}
-            />
-
-            <ResultPreview
-              isLoading={isPending}
-              isSuccess={isSuccess}
-              isError={isError}
-              error={error}
-              blobUrl={data?.blobUrl ?? null}
-              filename={data?.filename ?? null}
-              summary={data?.summary ?? null}
-              meta={data?.meta ?? null}
-            />
-          </div>
-
-          {/* Right column — settings + convert button */}
-          <div className="flex flex-col gap-4">
-            <SettingsPanel
-              settings={settings}
-              onChange={setSettings}
-              disabled={isPending}
-            />
-
-            <button
-              className="btn-primary w-full py-4 text-base glow-brand"
-              onClick={handleConvert}
-              disabled={!file || isPending}
-            >
-              {isPending ? (
-                <>
-                  <svg className="animate-spin-slow w-5 h-5" viewBox="0 0 24 24" fill="none">
-                    <circle
-                      className="opacity-25"
-                      cx="12" cy="12" r="10"
-                      stroke="currentColor" strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"
-                    />
-                  </svg>
-                  Converting…
-                </>
-              ) : (
-                <>
-                  <Zap size={18} />
-                  Convert to DXF
-                </>
-              )}
-            </button>
-
-            {/* Engine info card */}
-            <div className="glass p-4 text-xs text-slate-500 space-y-1.5 animate-fade-in">
-              <div className="flex justify-between">
-                <span>Engine</span>
-                <span className="text-slate-400 font-mono">ziconvert core</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Backend</span>
-                <span className="text-slate-400 font-mono">FastAPI / localhost:8000</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Output</span>
-                <span className="text-slate-400 font-mono">DXF (LWPOLYLINE + arcs)</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </main>
-
-      {/* ── Footer ────────────────────────────────────────────────────── */}
-      <footer className="border-t border-white/5 py-6 text-center text-xs text-slate-600">
-        ziconvert ·{' '}
-        <a
-          href="https://github.com/mechseiko/ziconvert"
-          className="text-slate-500 hover:text-slate-300 transition-colors"
-          target="_blank"
-          rel="noreferrer"
-        >
-          mechseiko/ziconvert
-        </a>{' '}
-        · MIT licence
       </footer>
     </div>
   )

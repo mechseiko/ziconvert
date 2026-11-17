@@ -109,12 +109,7 @@ async function convertImage({ file, settings }: ConvertInput): Promise<ConvertRe
 }
 
 export function useConvertImage() {
-  return useMutation({
-    mutationFn: convertImage,
-    // Clean up any previously created Blob URL to avoid memory leaks.
-    onSuccess: (_data, _vars, _ctx) => {},
-    onMutate: () => {},
-  })
+  return useMutation({ mutationFn: convertImage })
 }
 
 /** Fetch the list of available presets from the backend. */

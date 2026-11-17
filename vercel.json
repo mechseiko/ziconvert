@@ -1,0 +1,33 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "frontend": {
+      "root": "web/frontend",
+      "framework": "vite",
+      "installCommand": "npm ci",
+      "buildCommand": "npm run build",
+      "outputDirectory": "dist"
+    },
+    "backend": {
+      "root": "web/backend",
+      "framework": "fastapi",
+      "entrypoint": "main:app",
+      "buildCommand": "python -c \"import shutil; shutil.copytree('../../core/img2dxf', '_vendor/img2dxf', dirs_exist_ok=True)\"",
+      "functions": {
+        "main.py": {
+          "maxDuration": 60
+        }
+      }
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": { "service": "backend" }
+    },
+    {
+      "source": "/(.*)",
+      "destination": { "service": "frontend" }
+    }
+  ]
+}

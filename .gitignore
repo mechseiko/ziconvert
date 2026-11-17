@@ -74,3 +74,4 @@ web/backend/__pycache__/
 web/backend/*.pyc
 
 SKILL.md
+.vercel

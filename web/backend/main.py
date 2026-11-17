@@ -21,11 +21,16 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 # Path bootstrap — make core/ importable when running from web/backend/
 # ---------------------------------------------------------------------------
-_HERE = Path(__file__).resolve().parent          # web/backend/
+_HERE = Path(__file__).resolve().parent          # web/backend/ (or /var/task on Vercel)
 _REPO = _HERE.parent.parent                      # repo root
-_CORE = _REPO / "core"
+_CANDIDATES = (
+    _REPO / "core",
+    _HERE / "_vendor",
+    _HERE / "core",
+    _HERE.parent / "core",
+)
 
-for _candidate in (_CORE,):
+for _candidate in reversed(_CANDIDATES):
     _entry = str(_candidate)
     if _candidate.is_dir() and _entry not in sys.path:
         sys.path.insert(0, _entry)
@@ -74,18 +79,21 @@ app.add_middleware(
 # Endpoints
 # ---------------------------------------------------------------------------
 
+@app.get("/api/health")
 @app.get("/health")
 async def health():
     """Liveness check — returns 200 when the service is up."""
     return {"status": "ok", "engine_version": "0.2.0"}
 
 
+@app.get("/api/presets")
 @app.get("/presets")
 async def list_presets():
     """Return the available preset names so the frontend can populate a dropdown."""
     return {"presets": list(PRESETS.keys())}
 
 
+@app.post("/api/convert")
 @app.post("/convert")
 async def convert(
     file: UploadFile = File(..., description="PNG, JPEG or BMP image to trace"),

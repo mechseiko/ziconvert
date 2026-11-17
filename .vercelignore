@@ -1,0 +1,12 @@
+.venv/
+node_modules/
+web/frontend/node_modules/
+web/frontend/dist/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+.taste-skill/
+shots/
+web/frontend/shots/
+web/frontend/.taste-skill/

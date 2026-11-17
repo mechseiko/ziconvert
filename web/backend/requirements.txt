@@ -9,7 +9,7 @@ python-multipart>=0.0.9
 # Core engine dependencies (also listed in core/pyproject.toml but
 # repeated here so a bare pip install -r works without editable installs)
 numpy>=1.24.0
-opencv-python>=4.8.0
+opencv-python-headless>=4.8.0
 Pillow>=10.0.0
 ezdxf>=1.2.0
 pyclipper>=1.3.0
